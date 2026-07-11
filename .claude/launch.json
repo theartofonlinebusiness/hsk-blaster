@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hsk-game",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["/Users/kwadwo/Documents/HSK Game/serve.py"],
+      "port": 7777
+    }
+  ]
+}

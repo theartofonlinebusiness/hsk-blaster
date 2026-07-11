@@ -152,6 +152,93 @@ Examples in WORD_TIPS dict keyed by `word.t` (toneless pinyin).
 
 ---
 
+## Upcoming Architecture (Next Major Build — DO NOT start without reading this)
+
+### Target file structure (refactor away from single HTML):
+```
+game/
+├── index.html        (shell + UI)
+├── game.js           (all game logic)
+├── srs.js            (spaced repetition engine)
+└── words/
+    ├── hsk20.json    (HSK 2.0, all 6 levels, ~5,000 words)
+    └── hsk30.json    (HSK 3.0, all 9 levels, ~11,000 words)
+```
+Word lists loaded via fetch() at startup. Source: MIT-licensed `drkameleon/complete-hsk-vocabulary` on GitHub.
+
+### Game philosophy (critical — shapes every mechanic):
+- "Smart and cool on the surface, deeply intelligent underneath" (like a person)
+- The game is **per-HSK-level, infinite depth** — not cross-level progression
+- You pick HSK 3.0 Level 2 and play that level forever; it never advances to Level 3
+- Waves get mechanically harder within a session (more simultaneous, faster) but reset each session
+- SRS selects which words appear — always surfacing your weakest words
+- "Completing a level" = high SRS mastery on all vocabulary, but you can always return
+- After time passes, SRS will bring back words you haven't seen — standard spaced repetition
+
+### HSK version support:
+- **HSK 2.0** (old standard, 6 levels): 150/300/600/1200/2500/5000 words cumulative
+- **HSK 3.0** (new standard, 9 levels): 300/500/1000/2000/3600/5400/11000+ cumulative
+- Both modes selectable at game start
+- Both systems are used concurrently during the 2026 transition
+
+### SRS engine (localStorage, no backend):
+Tracks per word: ease factor, interval, error count, avg response time, avg hesitation.
+Signals: accuracy, speed (char appears → last letter), hesitation (char appears → first keypress), error count.
+Key: `srs_[hskVersion]_[level]_[wordToneless]` in localStorage.
+Session difficulty resets each session. SRS data persists forever.
+
+### Golden character mechanic:
+- Rare (8% chance), spawns from words player knows LEAST well (low SRS score)
+- Falls 70% of normal speed — feels special and dramatic
+- Position-based downgrade thresholds (NOT time-based):
+  - y > H*0.30 → first downgrade: changes to easier word (high SRS), 2× points
+  - y > H*0.55 → second downgrade: easier word again, 1.5× points
+  - y > H*0.75 → third downgrade: 1× points, stays as regular word
+- Starting value: 3× points, large explosion with big gold burst
+- If no SRS data yet → word is random both directions
+- Grace period: if player has started typing (sylBuf not empty), downgrade delayed 4s
+
+### Spotlight / First-time tutorial system:
+- Shows ONE TIME EVER on first game launch (localStorage flag)
+- Screen dims to 85% opacity overlay; the element being explained is cut out (bright)
+- A line stems from the element → box with explanation text
+- Applies to: initial game tour AND first-time appearances of mothership, golden characters
+- "How to Play" always accessible in pause menu to re-run tour
+
+### Pause menu "Vocabulary Inventory":
+- Shows words that were actively on screen when player hit pause
+- Each word: Chinese characters + toned pinyin + English + 2 example sentences
+- Sentence 1: casual/everyday usage at that HSK level
+- Sentence 2: how it might appear on an actual HSK test
+- Clean, short list — not overwhelming
+
+### Mode 3 (Hard Mode) improvements:
+- 4-choice character selection box: LARGER font for character choices and meanings
+- When box appears: gameplay slows to 50% speed, surroundings dim to 70% opacity
+- Box itself stays at full brightness — game is still happening, player must hurry
+
+### One-time Tour button:
+- Shows only on very first game launch ever
+- Interactive spotlight tour of the HUD elements
+- Disappears after completion, never shown again
+- Accessible anytime via "How to Play" in pause menu
+
+### Production stack (for WordPress deployment):
+- Hosting: SiteGround
+- CMS: WordPress + GeneratePress theme (free)
+- Paywall: Paid Memberships Pro (free plugin, Stripe integration built in)
+- Payment: Stripe via Paid Memberships Pro — no Gumroad needed
+- Game lives on a password-gated WordPress page, served as static files
+- Future: non-game learning content can be added behind same paywall (HSK-level graded content, etc.)
+
+### Business model:
+- $79 one-time purchase, lifetime access, all HSK levels 1–9 both standards
+- NO free version — ad creative (video) is the demo
+- Facebook/Instagram ads with open targeting (mirrors Recall Grid's proven model)
+- Owner has direct Facebook ads expertise (helped scale Recall Grid from $25/day)
+
+---
+
 ## What We Deliberately Don't Do
 - No radical connection hints in-game (explored, deferred — too much cognitive load during action)
 - No tone input mode (explored, rejected — gamefeel suffers)

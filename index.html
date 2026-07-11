@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>汉字 Blaster</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#050510;font-family:'Orbitron',monospace}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+#overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(5,5,16,.93);z-index:10}
+.screen{text-align:center;max-width:640px;padding:40px 30px;width:100%}
+h1{font-size:3.2em;font-weight:900;color:#00ffff;text-shadow:0 0 20px #00ffff,0 0 50px #0088ff;line-height:1.1;margin-bottom:8px}
+.sub{color:#4a6a8a;font-size:.85em;letter-spacing:3px;margin-bottom:36px}
+.sec{color:#445566;font-size:.78em;letter-spacing:3px;margin:24px 0 10px;text-transform:uppercase}
+.btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:6px 0}
+button{background:transparent;border:1px solid #1a4a6a;color:#4a9abf;font-family:'Orbitron',monospace;font-size:.82em;padding:10px 18px;cursor:pointer;letter-spacing:1px;transition:all .15s;outline:none}
+button:hover{border-color:#00ffff;color:#00ffff;text-shadow:0 0 8px #00ffff;box-shadow:0 0 12px rgba(0,255,255,.3)}
+button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-shadow:0 0 12px rgba(255,0,255,.35)}
+.go-btn{margin-top:28px;font-size:1em;padding:14px 48px;border-color:#00ff88;color:#00ff88;text-shadow:0 0 10px #00ff88;box-shadow:0 0 14px rgba(0,255,136,.25)}
+.go-btn:hover{background:rgba(0,255,136,.1);box-shadow:0 0 25px rgba(0,255,136,.6)}
+.tip{color:#223344;font-size:.62em;margin-top:26px;letter-spacing:1.5px;line-height:1.8}
+#hud{position:fixed;top:0;left:50%;transform:translateX(-50%);padding:16px 28px;display:none;justify-content:center;align-items:flex-start;gap:36px;z-index:5;pointer-events:none;white-space:nowrap}
+.hi{font-size:1.15em;text-align:center;min-width:84px}
+.hl{color:#445566;font-size:.76em;letter-spacing:2px}
+.hv{color:#00ffff;font-size:1.7em;text-shadow:0 0 10px #00ffff;margin-top:3px;font-weight:700}
+#lives-row{position:fixed;top:0;left:24px;display:none;gap:8px;z-index:5;pointer-events:none;align-items:center;padding-top:14px}
+#input-bar{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);font-size:1em;color:rgba(255,220,80,0.45);letter-spacing:2px;text-align:center;z-index:5;pointer-events:none;display:none}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes shake{0%,100%{transform:translateX(-50%)}15%{transform:translateX(calc(-50% - 8px))}30%{transform:translateX(calc(-50% + 8px))}45%{transform:translateX(calc(-50% - 5px))}60%{transform:translateX(calc(-50% + 5px))}75%{transform:translateX(calc(-50% - 2px))}}
+#input-bar.shake{animation:shake .35s ease-out}
+@keyframes menuExit{0%{transform:translateY(0);opacity:1}60%{opacity:0}100%{transform:translateY(-80px);opacity:0}}
+#overlay.exiting{animation:menuExit .5s ease-in forwards;pointer-events:none}
+#mode3-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(3,5,18,.97);border:1px solid #00ffff;box-shadow:0 0 40px rgba(0,255,255,.35);padding:28px 32px;z-index:20;font-family:'Orbitron',monospace;min-width:340px;text-align:center;display:none}
+#mode3-panel h3{color:#00ffff;font-size:.72em;letter-spacing:3px;margin-bottom:14px}
+#m3-py{color:#ffff00;font-size:1.2em;margin-bottom:4px}
+#m3-en{color:#4a6a8a;font-size:.7em;letter-spacing:2px;margin-bottom:18px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{border:1px solid #223344;padding:14px 10px;cursor:pointer;transition:all .15s;pointer-events:all}
+.opt:hover{border-color:#00ffff;background:rgba(0,255,255,.08)}
+.opt .on{color:#334455;font-size:.65em;margin-bottom:4px}
+.opt .oc{font-size:3em;color:#fff;font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;line-height:1.1}
+.opt .om{font-size:.72em;color:#aabbcc;margin-top:4px;letter-spacing:.5px}
+.opt.wrong{border-color:#ff0044;box-shadow:0 0 10px rgba(255,0,68,.4)}
+#gameover-scr{display:none}
+#go-score{font-size:2.2em;color:#00ffff;text-shadow:0 0 20px #00ffff;margin:16px 0 6px}
+#go-hs{color:#ff00ff;font-size:.85em;text-shadow:0 0 8px #ff00ff;margin-bottom:24px}
+.go-row{display:flex;gap:14px;justify-content:center;margin-top:20px}
+#wave-notice{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.8em;color:#ff8800;text-shadow:0 0 20px #ff8800;z-index:6;pointer-events:none;opacity:0;transition:opacity .4s}
+#pause-btn{position:fixed;top:14px;right:110px;z-index:6;background:transparent;border:1px solid #1a4a6a;color:#4a9abf;font-family:'Orbitron',monospace;font-size:.62em;padding:6px 12px;cursor:pointer;letter-spacing:1px;display:none}
+#pause-btn:hover{border-color:#00ffff;color:#00ffff}
+#pinyin-btn{position:fixed;top:14px;right:220px;z-index:6;background:transparent;border:1px solid #1a4a6a;color:#4a9abf;font-family:'Orbitron',monospace;font-size:.62em;padding:6px 12px;cursor:pointer;letter-spacing:1px;display:none}
+#pinyin-btn:hover{border-color:#ff00ff;color:#ff00ff}
+#pause-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(5,5,16,.88);z-index:15}
+#pause-box{text-align:center;padding:50px 60px;border:1px solid #00ffff;box-shadow:0 0 40px rgba(0,255,255,.2)}
+#pause-box h2{color:#00ffff;font-size:1.6em;text-shadow:0 0 20px #00ffff;margin-bottom:8px}
+#pause-box .psub{color:#334455;font-size:.65em;letter-spacing:3px;margin-bottom:32px}
+#pause-box .pbtn{display:block;width:200px;margin:10px auto;padding:12px;font-size:.8em}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<!-- hidden input captures mobile keyboard -->
+<input id="mobile-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+  style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:50%;left:50%;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent"
+  inputmode="latin">
+
+<div id="hud" style="display:none;flex-direction:row">
+  <div class="hi"><div class="hl">SCORE</div><div class="hv" id="hv-score">0</div></div>
+  <div class="hi" style="text-align:center"><div class="hl">WAVE</div><div class="hv" id="hv-wave">1</div></div>
+  <div class="hi" style="text-align:center"><div class="hl">STREAK 🔥</div><div class="hv" id="hv-streak" style="color:#ff88ff;text-shadow:0 0 8px #ff00ff">0</div></div>
+  <div class="hi" style="text-align:right"><div class="hl">BEST</div><div class="hv" id="hv-hs">0</div></div>
+</div>
+<div id="lives-row" style="display:none"></div>
+<div id="hints-row" style="display:none;position:fixed;top:52px;right:24px;z-index:5;font-family:Orbitron,monospace;font-size:.7em;color:#ffcc00;letter-spacing:1px;pointer-events:none">
+  <span id="hints-display">💡×1</span>
+  <span style="color:#334455;font-size:.75em;margin-left:6px">TAB</span>
+</div>
+<div id="input-bar" style="display:none"><span id="input-text"></span></div>
+<div id="wave-notice"></div>
+<button id="pause-btn" onclick="togglePause()">⏸ PAUSE</button>
+<button id="pinyin-btn" onclick="togglePinyin()">PINYIN: OFF</button>
+
+<div id="pause-overlay" style="display:none">
+  <div id="pause-box">
+    <h2>PAUSED</h2>
+    <div class="psub">ESC TO RESUME</div>
+    <button class="pbtn go-btn" onclick="togglePause()">▶ RESUME</button>
+    <button class="pbtn" style="border-color:#ff00ff;color:#ff00ff" onclick="togglePinyin();updatePinyinBtn()">PINYIN: <span id="pause-py-label">OFF</span></button>
+    <button class="pbtn" id="audio-btn" style="border-color:#00ff88;color:#00ff88" onclick="toggleAudio()">🔊 AUDIO: ON</button>
+    <div style="margin:14px 0 4px;display:flex;flex-direction:column;gap:10px;text-align:left">
+      <div style="font-size:.65em;letter-spacing:2px;color:#334455">PRONUNCIATION VOLUME</div>
+      <input type="range" id="tts-slider" min="0" max="100" value="100"
+        style="width:200px;accent-color:#00ff88" oninput="ttsVol=this.value/100">
+      <div style="font-size:.65em;letter-spacing:2px;color:#334455;margin-top:6px">GAME EFFECTS VOLUME</div>
+      <input type="range" id="sfx-slider" min="0" max="100" value="60"
+        style="width:200px;accent-color:#00ffff" oninput="sfxVol=this.value/100">
+      <div style="font-size:.65em;letter-spacing:2px;color:#334455;margin-top:6px">MUSIC VOLUME</div>
+      <input type="range" id="music-slider" min="0" max="100" value="38"
+        style="width:200px;accent-color:#ff00ff" oninput="musicVol=this.value/100;if(_musicGain){try{const a=ac();_musicGain.gain.linearRampToValueAtTime(musicVol*0.32,a.currentTime+0.2);}catch(e){}}">
+    </div>
+    <!-- Vocabulary inventory: words on screen when paused -->
+    <div id="pause-vocab" style="margin:18px 0 0;display:none;text-align:left;max-height:220px;overflow-y:auto">
+      <div style="color:#445566;font-size:.65em;letter-spacing:2px;margin-bottom:10px;text-align:center">WORDS ON SCREEN</div>
+      <div id="pause-vocab-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
+      <button class="pbtn" style="border-color:#4a6a8a;color:#4a6a8a" onclick="quitToMenu()">QUIT TO MENU</button>
+      <button class="pbtn" style="border-color:#334455;color:#445566;font-size:.65em" onclick="runTour()">HOW TO PLAY</button>
+    </div>
+  </div>
+</div>
+
+<!-- Spotlight tutorial overlay -->
+<div id="spotlight-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;display:none;pointer-events:all" onclick="advanceTutorial()">
+  <canvas id="spotlight-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+  <div id="spotlight-box" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(3,4,18,.97);border:1px solid #00ffff;box-shadow:0 0 50px rgba(0,255,255,.35);padding:32px 40px;max-width:480px;width:90%;font-family:'Orbitron',monospace;pointer-events:none;text-align:center">
+    <div id="spotlight-title" style="color:#00ffff;font-size:1em;margin-bottom:14px;letter-spacing:3px;text-shadow:0 0 12px #00ffff"></div>
+    <div id="spotlight-text" style="color:#ccd8e8;font-size:.88em;line-height:1.8;font-family:'Noto Sans',Arial,sans-serif;letter-spacing:.3px"></div>
+    <div style="color:#445566;font-size:.65em;margin-top:18px;letter-spacing:2px">CLICK ANYWHERE TO CONTINUE</div>
+  </div>
+</div>
+
+<div id="mode3-panel">
+  <h3>SELECT THE CORRECT CHARACTERS</h3>
+  <div id="m3-py"></div>
+  <div id="m3-en"></div>
+  <div class="opts" id="m3-opts"></div>
+</div>
+
+<div id="overlay">
+  <div class="screen" id="menu-scr">
+    <h1>汉字<br>BLASTER</h1>
+    <div class="sub">TYPE PINYIN · SHOOT CHARACTERS · MASTER HSK</div>
+    <!-- Loading state shown while word data fetches -->
+    <div id="menu-loading" style="color:#445566;font-size:.8em;letter-spacing:2px;margin:20px 0">LOADING WORD LISTS…</div>
+    <div id="menu-content" style="display:none">
+    <div class="sec">HSK Standard</div>
+    <div class="btn-row">
+      <button onclick="setHSKVersion('3.0')" id="hv-30" class="sel">HSK 3.0 — New (9 Levels)</button>
+      <button onclick="setHSKVersion('2.0')" id="hv-20">HSK 2.0 — Classic (6 Levels)</button>
+    </div>
+    <div class="sec">Level</div>
+    <div class="btn-row" id="level-row" style="flex-wrap:wrap;gap:8px"></div>
+    <div class="sec">Game Mode</div>
+    <div class="btn-row" id="mode-row" style="flex-direction:column;gap:8px;align-items:center">
+      <button onclick="setMode(1)" id="mb1" class="sel" style="width:340px;text-align:left;padding:12px 18px">
+        <span style="font-size:1em">MODE 1 &nbsp;—&nbsp; SINGLE CHARACTERS</span><br>
+        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">Chinese character falls · type its pinyin to shoot it</span>
+      </button>
+      <button onclick="setMode(2)" id="mb2" style="width:340px;text-align:left;padding:12px 18px">
+        <span style="font-size:1em">MODE 2 &nbsp;—&nbsp; FULL WORDS</span><br>
+        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">Multi-character word falls · type the complete pinyin</span>
+      </button>
+      <button onclick="setMode(3)" id="mb3" style="width:340px;text-align:left;padding:12px 18px">
+        <span style="font-size:1em">MODE 3 &nbsp;—&nbsp; ENGLISH → CHINESE &nbsp;<span style="color:#ff6644">★ Hard</span></span><br>
+        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">English meaning falls · type pinyin · pick the right characters</span>
+      </button>
+    </div>
+    <div class="sec">Options</div>
+    <div class="btn-row">
+      <button onclick="togglePinyin()" id="py-menu-btn">PINYIN HINTS: OFF</button>
+    </div>
+    <div id="tour-btn-row" style="display:none;margin-bottom:8px">
+      <button style="border-color:#ff8800;color:#ff8800;font-family:Orbitron,monospace;font-size:.72em;padding:8px 20px;background:transparent;cursor:pointer;letter-spacing:1px" onclick="runTour()">👁 TAKE THE TOUR FIRST</button>
+    </div>
+    <button class="go-btn" onclick="startGame()">▶ LAUNCH</button>
+    <div class="tip">
+      Type toneless pinyin &nbsp;·&nbsp; "ni" for 你 &nbsp;·&nbsp; "zhongguo" for 中国<br>
+      SPACE confirms &nbsp;·&nbsp; ESC to pause &nbsp;·&nbsp; 3 lives &nbsp;·&nbsp; Spaced repetition tracks your learning
+    </div>
+    </div><!-- end menu-content -->
+  </div>
+  <div class="screen" id="gameover-scr" style="display:none">
+    <h1 style="color:#ff1144;text-shadow:0 0 20px #ff1144;font-size:2.2em">GAME OVER</h1>
+    <div id="go-score" style="font-size:2em;color:#00ffff;text-shadow:0 0 20px #00ffff;margin:12px 0 4px">0</div>
+    <div id="go-hs" style="color:#ff00ff;font-size:.8em;margin-bottom:18px"></div>
+    <div id="go-newbest" style="display:none;color:#ffdd00;font-size:.85em;letter-spacing:2px;margin:4px 0 10px;text-shadow:0 0 12px #ffaa00"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;text-align:center">
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">WAVE REACHED</div><div id="go-wave" style="color:#00ffff;font-size:1.4em;margin-top:4px">1</div></div>
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST WAVE</div><div id="go-bestwv" style="color:#aaddff;font-size:1.4em;margin-top:4px">1</div></div>
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">ACCURACY</div><div id="go-acc" style="color:#00ff88;font-size:1.4em;margin-top:4px">--%</div></div>
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST STREAK</div><div id="go-streak" style="color:#ff88ff;font-size:1.4em;margin-top:4px">0</div></div>
+    </div>
+    <div style="color:#334455;font-size:.68em;letter-spacing:1.5px;margin:8px 0 4px">WORDS COMMANDED THIS RUN</div>
+    <div id="go-words" style="color:#00ffff;font-size:1.6em;text-shadow:0 0 12px #00ffff;margin-bottom:12px">0</div>
+    <div id="go-missed" style="margin:18px 0 0;text-align:left;max-height:200px;overflow-y:auto;display:none">
+      <div style="color:#556677;font-size:.78em;letter-spacing:2px;margin-bottom:10px;text-align:center">WORDS YOU MISSED — STUDY THESE</div>
+      <div id="go-missed-list" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center"></div>
+    </div>
+    <div class="go-row">
+      <button class="go-btn" onclick="startGame()">▶ RETRY</button>
+      <button style="padding:14px 28px;border-color:#4a6a8a;color:#4a6a8a" onclick="showMenu()">MENU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── WORD DATA LOADED ASYNC via loadWordData() ──────────────────────────────
+// Word lists live in words/hsk30.json and words/hsk20.json
+// Structured as: { "1": [[chars, pinyin, english], ...], "2": [...], ... }
+let gameWordData = null;      // set by loadWordData()
+let selHSKVersion = "3.0";   // "3.0" or "2.0"
+let selHSKLevel   = "1";     // "1","2","3","4","5","6","7-9" for 3.0
+
+
+// ─── PROCESS RAW DATA ─────────────────────────────────────────────────────
+function stripTones(s){
+  return s.toLowerCase()
+    .replace(/[ǖǘǚǜü]/g,'u')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g,'')
+    .replace(/\s+/g,'');
+}
+// normalize player input: v→u (Chinese keyboard convention for ü)
+function normInput(s){ return s.replace(/v/g,'u'); }
+
+// HSK dict populated by loadWordData() — access via getWordPool()
+// Do not use HSK[] directly; use getWordPool() which respects version + level
+const HSK={};  // legacy compatibility — filled from gameWordData after load
+
+
+// ─── WAVE TIPS — TikTok-style cultural micro-lessons ──────────────────────
+// Key = toneless pinyin (word.t). Value = one surprising/funny insight.
+const WORD_TIPS={
+  'nihao':    '🤝 你好 = "you good?" Not "how are you" — just confirming you\'re good. Chinese efficiency!',
+  'zaijian':  '👋 再见 = "again-see." Chinese goodbye is optimistic. We WILL meet again.',
+  'xiexie':   '😄 Say 谢谢 twice for full thanks. One 谢 alone sounds stingy!',
+  'duibuqi':  '🙏 对不起 = "face-not-rise." So sorry I can\'t look up and face you. That\'s deep.',
+  'meiguanxi':'😌 没关系 = "no connection." No problem = "it\'s not connected to me." Very zen.',
+  'dongxi':   '🤯 东西 = EAST + WEST. Ancient merchants came from east and west to trade. That\'s why "stuff" = east-west!',
+  'feiji':    '✈️ 飞机 = FLY-MACHINE. Every Chinese tech word is just what it does.',
+  'diannao':  '💻 电脑 = ELECTRIC-BRAIN. Computer = electric brain. Honestly correct.',
+  'shouji':   '📱 手机 = HAND-MACHINE. Phone = machine for your hand. Because it fits there.',
+  'chuzuche': '🚕 出租车 = EXIT-RENT-VEHICLE. Taxi = a car that exits and you rent it.',
+  'zhongguo': '🇨🇳 中国 = MIDDLE-COUNTRY. China named itself the Middle Kingdom — center of the world.',
+  'putonghua':'🗣️ 普通话 = COMMON-ORDINARY-SPEECH. "Standard Mandarin" = just "the ordinary way people talk."',
+  'gaoxing':  '😊 高兴 = HIGH + MOOD. Happy = your mood is literally elevated. Chinese emotions are vertical!',
+  'yundong':  '🏃 运动 = CARRY-MOVE. Exercise = carrying your body and moving it. Accurate.',
+  'mashang':  '⚡ 马上 = ON-HORSE. Immediately = on horseback (ancient fastest travel). Still used today!',
+  'yiqian':   '⏪ 以前 = USE-BEFORE. Previously = using what came before you.',
+  'yihou':    '⏩ 以后 = USE-AFTER. Later = using what comes after. Beautiful symmetry with 以前.',
+  'turan':    '💥 突然 = PROTRUDE-THEN. Suddenly = when something juts out unexpectedly. Very visual.',
+  'zhongyu':  '🏁 终于 = END-AT. Finally = at the end. The relief is built into the word.',
+  'kafei':    '☕ 咖啡 is pure phonetics — borrowed the SOUND of "coffee." Rare: most Chinese words describe function, not sound.',
+  'ziyou':    '🕊️ 自由 = SELF-FLOW. Freedom = your self flowing freely without obstruction. Beautiful.',
+  'zeren':    '⚖️ 责任 = BLAME-DUTY. Responsibility = the duty that receives the blame. Chinese honesty!',
+  'jingzheng':'🥊 竞争 = COMPETE-FIGHT. Competition = fighting to compete. No sugarcoating.',
+  'xuxi':     '😴 休息 = REST-BREATHE. Rest = the act of breathing easy.',
+  'paobu':    '🏃 跑步 = RUN-STEP. Jogging = running steps. Sometimes Chinese just stacks synonyms for emphasis.',
+  'faxian':   '🔭 发现 = SEND-APPEAR. Discover = sending something out until it appears to you.',
+  'jieshao':  '🤝 介绍 = BETWEEN-INTRODUCE. Introduction = standing between two people to connect them.',
+  'minzhu':   '🗳️ 民主 = PEOPLE-MASTER. Democracy = the people are the masters. 2 characters, whole philosophy.',
+  'pingdeng': '⚖️ 平等 = LEVEL-EQUAL. Equality = everything on the same flat level.',
+  'xiaolv':   '⚙️ 效率 = EFFECT-RATE. Efficiency = how fast effects happen. Engineers designed this word.',
+  'shengri':  '🎂 生日 = BIRTH-DAY-SUN. Birthday = the day-sun of your birth. Every birthday is a sunrise.',
+  'tianqi':   '🌤️ 天气 = SKY-ENERGY. Weather = the energy of the sky. Poetic!',
+  'yule':     '🎮 娱乐 = PLEASE-HAPPY. Entertainment = what pleases and creates happiness.',
+  'lishi':    '📜 历史 = CALENDAR-HISTORY. History = what the calendar has already counted.',
+  'wenhua':   '🎭 文化 = WRITING-BECOME. Culture = what you become through the written word.',
+  'kexue':    '🔬 科学 = BRANCH-LEARN. Science = learning the branches of knowledge.',
+  'yisheng':  '🩺 医生 = HEAL-PERSON. Doctor = the person who heals. No ambiguity.',
+  'tongxue':  '📚 同学 = SAME-STUDY. Classmate = someone who studies the same things as you.',
+  'laoshi':   '👩‍🏫 老师 = OLD-MASTER. Teacher = the old master. Respect built into the word.',
+};
+
+function pickWaveTip(words){
+  const tipped=words.filter(w=>WORD_TIPS[w.t]);
+  if(!tipped.length) return '';
+  // pick a random one, prefer less-common characters for surprise factor
+  const pick=tipped[Math.floor(Math.random()*tipped.length)];
+  return WORD_TIPS[pick.t];
+}
+
+// ─── ASYNC WORD DATA LOADING ──────────────────────────────────────────────
+async function loadWordData(){
+  try{
+    const [r30, r20] = await Promise.all([
+      fetch('words/hsk30.json'),
+      fetch('words/hsk20.json')
+    ]);
+    const [d30, d20] = await Promise.all([r30.json(), r20.json()]);
+    gameWordData = {'3.0': d30, '2.0': d20};
+
+    // Process into word objects (add toneless key + single flag)
+    // Also populate legacy HSK[] for any code still referencing it
+    for(const ver of ['3.0','2.0']){
+      for(const [lvl, words] of Object.entries(gameWordData[ver])){
+        gameWordData[ver][lvl] = words.map(([c,p,e])=>({
+          c, p, e,
+          t: stripTones(p),
+          single: c.length===1
+        }));
+      }
+    }
+
+    // Render the menu now that data is loaded
+    renderMenu();
+    document.getElementById('menu-loading').style.display='none';
+    document.getElementById('menu-content').style.display='block';
+  }catch(err){
+    document.getElementById('menu-loading').textContent='ERROR LOADING WORD LISTS. Make sure serve.py is running.';
+    console.error('loadWordData failed:', err);
+  }
+}
+
+function getWordPool(){
+  // Returns the processed word array for the current selection
+  if(!gameWordData) return [];
+  return (gameWordData[selHSKVersion]?.[selHSKLevel]) || [];
+}
+
+function getAllLowerLevels(){
+  // Returns words from levels 1 through current (for mothership children)
+  if(!gameWordData) return [];
+  const data = gameWordData[selHSKVersion] || {};
+  const levels = Object.keys(data).sort();
+  const idx = levels.indexOf(selHSKLevel);
+  const result = [];
+  for(let i=0; i<=idx; i++) result.push(...(data[levels[i]]||[]));
+  return result;
+}
+
+function renderMenu(){
+  // Build level selector buttons for the current HSK version
+  const row = document.getElementById('level-row');
+  row.innerHTML = '';
+  const levelKeys = selHSKVersion==='3.0'
+    ? ['1','2','3','4','5','6','7-9']
+    : ['1','2','3','4','5','6'];
+  levelKeys.forEach(lv=>{
+    const count = (gameWordData[selHSKVersion]?.[lv]||[]).length;
+    const btn = document.createElement('button');
+    btn.id = `lb-${lv.replace('-','')}`;
+    btn.textContent = lv==='7-9' ? 'Adv 7–9' : `Level ${lv}`;
+    btn.title = `${count} words`;
+    btn.onclick = ()=>setHSKLevel(lv);
+    if(lv===selHSKLevel) btn.classList.add('sel');
+    row.appendChild(btn);
+  });
+}
+
+function setHSKVersion(ver){
+  selHSKVersion = ver;
+  selHSKLevel = '1';
+  document.querySelectorAll('[id^="hv-"]').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('hv-'+ver.replace('.',''))?.classList.add('sel');
+  renderMenu();
+}
+
+function setHSKLevel(lv){
+  selHSKLevel = lv;
+  document.querySelectorAll('#level-row button').forEach(b=>b.classList.remove('sel'));
+  document.getElementById(`lb-${lv.replace('-','')}`)?.classList.add('sel');
+}
+
+// ─── SPACED REPETITION ENGINE ────────────────────────────────────────────────
+// Adapted SM-2 stored in localStorage per version+level. Signals: accuracy,
+// response time (ms), hesitation (ms before first keypress), error count.
+
+function srsKey(){ return `srs_${selHSKVersion}_${selHSKLevel}`; }
+
+function srsLoad(){
+  try{ return JSON.parse(localStorage.getItem(srsKey())||'{}'); }
+  catch(e){ return {}; }
+}
+
+function srsSave(data){ localStorage.setItem(srsKey(), JSON.stringify(data)); }
+
+function srsQuality(correct, responseMs, hesitationMs, errors){
+  if(!correct) return 1;
+  let q = 5;
+  if(errors>0) q -= Math.min(2, errors);
+  if(responseMs>6000) q -= 2;
+  else if(responseMs>3500) q -= 1;
+  if(hesitationMs>5000) q -= 1;
+  else if(hesitationMs>2500) q -= 0.5;
+  return Math.max(1, Math.round(q));
+}
+
+function srsUpdate(word, quality){
+  const data = srsLoad();
+  const k = word.t;
+  const e = data[k] || {ease:2.5, interval:1, reps:0};
+  if(quality>=3){
+    e.reps++;
+    e.interval = e.reps<=1 ? (e.reps===0?1:2) : Math.round(e.interval*e.ease);
+    e.ease = Math.max(1.3, e.ease+0.1-(5-quality)*(0.08+(5-quality)*0.02));
+  } else {
+    e.reps=0; e.interval=1;
+    e.ease = Math.max(1.3, e.ease-0.2);
+  }
+  e.lastSeen = Date.now();
+  e.quality = quality;
+  data[k] = e;
+  srsSave(data);
+}
+
+function srsSortedPool(){
+  // Return words sorted by SRS priority: unknown/weak first.
+  // Add jitter to equal-score words so the pool is never alphabetically sequential.
+  const pool = getWordPool();
+  const data = srsLoad();
+  return pool.map(w=>{
+    const e = data[w.t];
+    const jitter = Math.random() * 50; // spread equal-score words randomly
+    if(!e) return {w, score: 1000 + jitter}; // unknown = high priority, shuffled
+    const overdue = (Date.now() - (e.lastSeen||0)) / (e.interval * 86400000);
+    return {w, score: e.ease * 2 - overdue + jitter * 0.1};
+  }).sort((a,b)=>a.score-b.score).map(x=>x.w);
+}
+
+function srsGetStrongWords(count){
+  // Used by golden character downgrade: pick from words the player knows WELL
+  const pool = getWordPool();
+  const data = srsLoad();
+  const strong = pool.filter(w=>{
+    const e=data[w.t];
+    return e && e.ease>=2.4 && e.reps>=3;
+  });
+  if(strong.length<count) return pool.slice(0,count); // fall back to random if not enough data
+  // shuffle and return count
+  for(let i=strong.length-1;i>0;i--){const j=0|Math.random()*(i+1);[strong[i],strong[j]]=[strong[j],strong[i]];}
+  return strong.slice(0,count);
+}
+
+// ─── BEGINNER LEVEL HELPER ────────────────────────────────────────────────
+// For early levels: always show English meaning above + pinyin below characters.
+// This mirrors how HSK 1-2 study materials present vocabulary (all 3 elements together).
+// HSK 2.0 L1-2 / HSK 3.0 L1-3 = full scaffolding; higher levels = recall mode.
+function isBeginnerLevel(){
+  if(selHSKVersion==='2.0') return selHSKLevel==='1'||selHSKLevel==='2';
+  if(selHSKVersion==='3.0') return selHSKLevel==='1'||selHSKLevel==='2'||selHSKLevel==='3';
+  return false;
+}
+
+// ─── GAME STATE ────────────────────────────────────────────────────────────
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+
+// ── play area: desktop 860px / mobile 390px, centered ─────────────────────
+let screenMode=window.innerWidth<600?'mobile':'desktop';
+let PLAY_W=screenMode==='mobile'?390:860;
+let PLAY_X=0;
+
+function resize(){
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
+  // Auto-detect device format — phone ≤600px gets mobile play area; everything else desktop
+  // iPad portrait (768px) → desktop (860px play area fits fine); phone → 390px
+  const newMode=W<=600?'mobile':'desktop';
+  if(newMode!==screenMode){
+    screenMode=newMode;
+    PLAY_W=screenMode==='mobile'?390:860;
+  }
+  PLAY_X=Math.max(0,Math.floor((W-PLAY_W)/2));
+}
+resize();
+window.addEventListener('resize',resize);
+
+let gState='menu'; // menu | playing | paused | gameover
+let score=0,hiScore=+(localStorage.getItem('hsk_hi')||0);
+let lives=3,wave=1,frameCount=0,gameTime=0;
+let selMode=1;
+let showPinyin=false;
+let sylBuf='';
+let streak=0,longestStreak=0,wordsDestroyed=0,wordsMissed=0,wrongLetters=0;
+// wave state machine
+let waveState='starting'; // 'starting'|'fighting'|'finishing'
+let waveTimer=0,wordsPerWave=8,wordsSpawnedThisWave=0,maxSimultaneous=4;
+let pool=[];        // words for current level
+let allLevelsPool=[];  // HSK 1..selHSK combined, for mothership children
+let hints=1;           // hint count — start with 1, earn 1 per perfect wave (cap 5)
+let hintActiveTimer=0; // ms remaining to show hint pinyin for targeted word
+let screenShake=0;
+let wordFlashes=[];   // [{c,p,e,x,y,vy,age,maxAge,missed}] — definition popups
+let missesThisWave=0;
+let _newBestFlashed=false;
+let missedWords=[];   // words that reached the bottom this run — shown on game over
+let waveWords=[];     // words spawned this wave — used to pick a wave tip
+let currentWaveTip='';// cultural/language tip shown at wave clear
+let audioMode=true;
+let ttsVol=1.0;  // TTS pronunciation volume (0-1)
+let sfxVol=0.6;  // game effects volume multiplier (0-1)
+let pendingExplosion=null; // {wref, tid} — space bar fires immediately when set
+let falling=[];     // FallingWord instances
+let bullets=[];     // {x,y,tx,ty,word,speed}
+let particles=[];   // {x,y,vx,vy,life,maxLife,color,size}
+let stars=[];
+let typed='';       // current player input
+let target=null;    // word being targeted
+let spawnTimer=0,spawnInterval=3000;
+let speedMult=1;
+let m3Pending=null; // mode3 word waiting for char selection
+let lastTime=0;
+let flashMessage='';let flashTimer=0;
+let launchFlash=0; // bright flash when game launches — fades quickly
+let wordsCommandedSet=new Set(); // unique word toneless IDs destroyed this run
+let bestWave=+(localStorage.getItem('hsk_bestwave')||0); // personal best wave
+
+// ─── STARS ────────────────────────────────────────────────────────────────
+function initStars(){
+  stars=[];
+  for(let i=0;i<180;i++){
+    stars.push({
+      x:Math.random()*2000,y:Math.random()*1200,
+      size:Math.random()*1.5+0.3,
+      bright:Math.random()
+    });
+  }
+}
+initStars();
+
+// ─── FALLING WORD ──────────────────────────────────────────────────────────
+class FallingWord{
+  constructor(word){
+    this.word=word;
+    this.x=80+Math.random()*(W-160);
+    this.y=-20; // spawn close to top so characters appear quickly, not 6s later
+    const sizeRoll=Math.random();
+    // Smaller range: Desktop 45–88px, Mobile 36–64px — reduces overlap
+    const fMin=screenMode==='mobile'?36:45;
+    const fRange=screenMode==='mobile'?28:43;
+    this.fontSize=selMode===3?(screenMode==='mobile'?16:20):Math.round(fMin+sizeRoll*fRange);
+    // Speed: fast enough to feel energetic, variance from size
+    const sizeSpeedFactor=1.3-sizeRoll*0.5;
+    const tierRoll=Math.random();
+    const tier=tierRoll<0.3?0.65:tierRoll<0.8?1.0:1.5;
+    this.baseSpeed=(0.72+Math.random()*0.28)*speedMult*sizeSpeedFactor*tier;
+    this.speed=this.baseSpeed;
+    this.opacity=1;
+    this.targeted=false;
+    this.dying=false;
+    this.dyingTimer=0;
+    this.completedSyls=0;
+    this.damageFlash=0;
+    this.vx=0; // horizontal velocity for fanning children
+    this.spawnTime=Date.now();     // for hesitation tracking (SRS signal)
+    this.firstKeyTime=null;        // set when player first types toward this word
+    this.responseStartTime=null;   // set when word is locked as target
+    this.sessionErrors=0;          // wrong letters typed while targeting this word
+    // toneless for matching, toned for display
+    this.syllables=word.p.trim().split(/\s+/).map(s=>stripTones(s));
+    this.tonedSyls=word.p.trim().split(/\s+/); // with diacritics
+    this.chars=[...word.c];
+    if(selMode===3){
+      this.displayText=word.e.toUpperCase();
+      this.hint=word.p;
+      this.isEnglish=true;
+    } else {
+      this.displayText=word.c;
+      this.hint=word.p;
+      this.isEnglish=false;
+    }
+    this.charW=this.fontSize+4;
+    // erhua (儿化): last char is 儿 used as retroflexed suffix — auto-skip when rest is typed
+    // e.g. 一点儿: type "yidian", 儿 auto-completes. Real Chinese IME works the same way.
+    this.isErhua=(
+      this.chars.length>=2&&
+      this.chars[this.chars.length-1]==='儿'&&
+      this.syllables[this.syllables.length-1]==='er'
+    );
+  }
+
+  // how many syllables are completed given the current typed string
+  sylsCompleted(typedStr){
+    let pos=0,count=0;
+    for(const syl of this.syllables){
+      if(typedStr.length>=pos+syl.length) { pos+=syl.length; count++; }
+      else break;
+    }
+    return count;
+  }
+
+  update(dt){
+    if(this.dying){
+      this.dyingTimer+=dt;
+      this.opacity=Math.max(0,1-this.dyingTimer/300);
+      return this.dyingTimer>350;
+    }
+    if(this.damageFlash>0) this.damageFlash=Math.max(0,this.damageFlash-dt);
+    // Exponential slowdown in the danger zone — only triggers in last ~12% of screen
+    // Gives players a "just in time" save opportunity without making the game too easy
+    const bottomEdge = H - 80;
+    const distFromBottom = Math.max(0, bottomEdge - (this.y + this.fontSize * 0.55));
+    const slowZone = H * 0.12; // bottom 12% triggers slowdown
+    const speedMod = distFromBottom < slowZone
+      ? Math.pow(distFromBottom / slowZone, 2.5) // exponential: near bottom → near 0
+      : 1;
+    this.y += this.speed * speedMod * (dt/16);
+    // horizontal velocity (children fan out)
+    if(this.vx){
+      this.x+=this.vx*(dt/16);
+      this.vx*=Math.pow(0.992,dt/16);
+    }
+    // clamp using actual word half-width so nothing protrudes outside the column
+    const _hw=(this.chars.length*(this._measuredCharW||this.charW))/2+8;
+    const minX=PLAY_X+_hw, maxX=PLAY_X+PLAY_W-_hw;
+    if(this.x<minX){this.x=minX;if(this.vx<0)this.vx*=-0.4;}
+    if(this.x>maxX){this.x=maxX;if(this.vx>0)this.vx*=-0.4;}
+    return false;
+  }
+
+  draw(){
+    const a=this.opacity;
+    if(a<=0)return;
+    ctx.save();
+    ctx.globalAlpha=a;
+    ctx.textBaseline='middle';
+    ctx.textAlign='center';
+
+    if(this.isEnglish){
+      // Mode 3 — dynamically fit English text within PLAY_W so it never protrudes
+      const isT=this.targeted;
+      ctx.shadowBlur=isT?14:5;
+      ctx.shadowColor=isT?'rgba(200,220,255,0.7)':'rgba(100,150,255,0.3)';
+      // Find font size that fits text within (PLAY_W - 20px padding)
+      let engSize=this.fontSize;
+      ctx.font=`bold ${engSize}px 'Orbitron',monospace`;
+      while(engSize>10 && ctx.measureText(this.displayText).width > PLAY_W-20){
+        engSize--;
+        ctx.font=`bold ${engSize}px 'Orbitron',monospace`;
+      }
+      ctx.fillStyle=isT?'#ffffff':'rgba(180,210,255,0.55)';
+      // Clamp x so centered text never exceeds play area
+      const txtW=ctx.measureText(this.displayText).width;
+      const clampedX=Math.max(PLAY_X+txtW/2+8, Math.min(PLAY_X+PLAY_W-txtW/2-8, this.x));
+      ctx.fillText(this.displayText,clampedX,this.y);
+      if(!this.dying&&showPinyin){
+        ctx.font=`${this.hintSize}px 'Orbitron',monospace`;
+        ctx.fillStyle='rgba(100,180,255,0.5)';
+        ctx.shadowBlur=3;
+        ctx.fillText(this.hint,this.x,this.y+this.fontSize*0.75);
+      }
+      // typed pinyin under English word
+      if(isT&&!this.dying){
+        const disp=this.syllables.slice(0,this.completedSyls).join('')+sylBuf;
+        if(disp){
+          ctx.font=`bold ${Math.max(12,this.fontSize*0.55)}px 'Orbitron',monospace`;
+          ctx.shadowBlur=10;ctx.shadowColor='#ffdd00';
+          ctx.fillStyle='#ffdd00';
+          ctx.fillText(disp,this.x,this.y+this.fontSize*0.75+(this.hintSize+6));
+        }
+      }
+    } else {
+      // Mode 1/2: per-character with fill-reveal life bar
+
+      // ── build pinyin sizing cache once per word ──────────────────────
+      // Measures actual Chinese char pixel width, then binary-searches for the
+      // Orbitron font size where the toned syllable text exactly spans that width.
+      if(!this._pyInfo){
+        ctx.save();
+        const rawSizes=this.tonedSyls.map((tSyl,i)=>{
+          if(!tSyl) return {size:14,charPxW:this.fontSize};
+          ctx.font=`bold ${this.fontSize}px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
+          const charPxW=ctx.measureText(this.chars[i]||'').width||this.fontSize;
+          let lo=6,hi=72;
+          for(let k=0;k<12;k++){
+            const m=(lo+hi)/2;
+            ctx.font=`bold ${m}px 'Noto Sans','Segoe UI',Arial,sans-serif`;
+            ctx.measureText(tSyl).width<charPxW?(lo=m):(hi=m);
+          }
+          return {size:Math.max(10,Math.floor((lo+hi)/2)),charPxW};
+        });
+        // Use the MINIMUM font size across all syllables so every syllable matches
+        // — prevents the sloppy "different size per character" look
+        const unifiedSize=Math.max(10,Math.min(...rawSizes.map(r=>r.size)));
+        this._pyInfo=rawSizes.map(r=>({size:unifiedSize,charPxW:r.charPxW}));
+        this._measuredCharW=Math.max(...this._pyInfo.map(p=>p.charPxW));
+        ctx.restore();
+      }
+
+      const measCW=this._measuredCharW||this.charW;
+      const n=this.chars.length;
+      const totalW=(n-1)*measCW;
+      const startX=this.x-totalW/2;
+      const fh=this.fontSize*1.15;
+      const fw=this.fontSize*1.05;
+
+      ctx.font=`bold ${this.fontSize}px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
+
+      // ── Beginner mode: English meaning floats ABOVE the word ──────────────
+      // Active for HSK 2.0 L1-2 and HSK 3.0 L1-3 — mirrors how study materials present vocab
+      if(isBeginnerLevel()&&!this.dying){
+        ctx.save();
+        const engStr=this.word.e.length>30?this.word.e.slice(0,28)+'…':this.word.e;
+        const engSize=Math.max(11,Math.min(16,Math.floor(PLAY_W*0.032)));
+        ctx.font=`500 ${engSize}px 'Noto Sans',Arial,sans-serif`;
+        ctx.shadowBlur=0;
+        ctx.fillStyle=this.targeted?'rgba(200,230,255,0.85)':'rgba(140,180,220,0.55)';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(engStr, this.x, this.y - fh*0.72 - engSize*0.8);
+        ctx.restore();
+      }
+
+      // mothership indicator — pulsing orange ring + position-based arc
+      if(this.isMother&&!this.dying){
+        const pulse=0.55+0.45*Math.abs(Math.sin(Date.now()*0.003));
+        ctx.save();
+        ctx.shadowBlur=24;ctx.shadowColor=`rgba(255,120,0,${pulse})`;
+        ctx.strokeStyle=`rgba(255,150,0,${pulse*0.9})`;
+        ctx.lineWidth=3;
+        ctx.strokeRect(this.x-totalW/2-fw*0.55,this.y-fh*0.6,totalW+fw*1.1,fh*1.2);
+        ctx.restore();
+        // arc fills over decreasing threshold per spawn cycle
+        const _sc=this.spawnCount||0;
+        const _thresh=Math.max(3500,10000-_sc*2500);
+        const ratio=Math.min(1,Math.max(0,(this.motherVisibleMs||0)/_thresh));
+        ctx.save();
+        ctx.shadowBlur=12;ctx.shadowColor='#ff6600';
+        ctx.strokeStyle=`rgba(255,110,0,${0.45+0.55*ratio})`;
+        ctx.lineWidth=2.5;
+        ctx.beginPath();
+        ctx.arc(this.x,this.y-fh*0.62-14,9,-Math.PI/2,-Math.PI/2+Math.PI*2*ratio);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // golden word — pulsing gold halo ring
+      if(this.isGolden&&!this.dying){
+        const gp=0.5+0.5*Math.abs(Math.sin(Date.now()*0.004));
+        ctx.save();
+        ctx.shadowBlur=30;ctx.shadowColor=`rgba(255,200,0,${gp})`;
+        ctx.strokeStyle=`rgba(255,220,50,${0.6+0.4*gp})`;
+        ctx.lineWidth=2.5;
+        ctx.strokeRect(this.x-totalW/2-fw*0.55,this.y-fh*0.6,totalW+fw*1.1,fh*1.2);
+        ctx.restore();
+      }
+
+      for(let i=0;i<n;i++){
+        const cx=startX+i*measCW;
+        const charTop=this.y-fh*0.52;
+        const charBot=this.y+fh*0.52;
+
+        // danger tint: shift colour toward orange→red as word nears bottom
+        const danger=Math.max(0,Math.min(1,(this.y-H*0.55)/(H*0.3)));
+
+        if(i<this.completedSyls){
+          ctx.shadowBlur=22;ctx.shadowColor='rgba(0,255,120,0.9)';
+          ctx.fillStyle='#00ff88';
+          ctx.fillText(this.chars[i],cx,this.y);
+        } else if(this.isGolden){
+          // golden character — warm gold with shimmer
+          const gShim=0.75+0.25*Math.abs(Math.sin(Date.now()*0.005+i));
+          ctx.shadowBlur=this.targeted?20:10;
+          ctx.shadowColor=`rgba(255,200,0,${gShim})`;
+          ctx.fillStyle=`rgba(255,${Math.round(200+30*gShim)},0,${0.85+0.15*gShim})`;
+          ctx.fillText(this.chars[i],cx,this.y);
+        } else if(danger>0){
+          // orange-red pulse when in danger zone
+          const r=Math.round(180+75*danger), g=Math.round(160-120*danger), b=Math.round(80-60*danger);
+          ctx.shadowBlur=8+danger*16;
+          ctx.shadowColor=`rgba(${r},${Math.max(0,g)},0,0.8)`;
+          ctx.fillStyle=`rgba(${r},${Math.max(0,g)},${Math.max(0,b)},${0.7+danger*0.3})`;
+          ctx.fillText(this.chars[i],cx,this.y);
+        } else {
+          ctx.shadowBlur=this.targeted?8:3;
+          ctx.shadowColor=this.targeted?'rgba(180,220,255,0.5)':'rgba(80,140,220,0.2)';
+          ctx.fillStyle=this.targeted?'rgba(220,235,255,0.78)':'rgba(140,180,230,0.42)';
+          ctx.fillText(this.chars[i],cx,this.y);
+
+          // Fill-reveal: bottom-to-top cyan fill per typed letter
+          if(this.targeted&&i===this.completedSyls&&!this.dying){
+            const curSyl=this.syllables[i]||'';
+            const prog=curSyl.length>0?sylBuf.length/curSyl.length:0;
+            if(prog>0){
+              const fillTop=charBot-fh*prog;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(cx-fw*0.58,fillTop,fw*1.16,(charBot-fillTop)+2);
+              ctx.clip();
+              ctx.shadowBlur=20;ctx.shadowColor='rgba(0,220,255,0.95)';
+              ctx.fillStyle='#00eeff';
+              ctx.fillText(this.chars[i],cx,this.y);
+              ctx.restore();
+            }
+          }
+        }
+
+        // ── pinyin under each character, sized to span char width ──────
+        if(!this.dying){
+          const info=this._pyInfo?this._pyInfo[i]:null;
+          const pySize=info?info.size:14;
+          const tSyl=this.tonedSyls[i]||'';
+          const yBelow=charBot+pySize*0.9;
+
+          ctx.save();
+          // Latin-first font — Noto Sans (not SC) renders tone diacritics correctly
+          const pyFont=`bold ${pySize}px 'Noto Sans','Segoe UI',Arial,sans-serif`;
+          if(i<this.completedSyls){
+            ctx.font=pyFont;
+            ctx.shadowBlur=6;ctx.shadowColor='rgba(0,255,120,0.5)';
+            ctx.fillStyle='rgba(0,255,140,0.85)';
+            ctx.fillText(tSyl,cx,yBelow);
+          } else if(this.targeted&&i===this.completedSyls){
+            // Show typed progress (sylBuf growing) or hint tSyl for beginner levels
+            const dispBuf=sylBuf||(( showPinyin||isBeginnerLevel())?tSyl:'');
+            if(dispBuf){
+              ctx.font=pyFont;
+              ctx.shadowBlur=14;ctx.shadowColor='#ffdd00';
+              ctx.fillStyle='#ffee44';
+              ctx.fillText(dispBuf,cx,yBelow);
+            }
+          } else if(showPinyin||isBeginnerLevel()){
+            // Pinyin always visible for beginners; optional for higher levels
+            ctx.font=pyFont;
+            ctx.shadowBlur=3;ctx.shadowColor='rgba(100,160,255,0.2)';
+            ctx.fillStyle=isBeginnerLevel()?'rgba(140,185,255,0.65)':'rgba(110,160,255,0.4)';
+            ctx.fillText(tSyl,cx,yBelow);
+          }
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  reachedBottom(){ return this.y>H-80; }
+}
+
+// ─── PARTICLES ────────────────────────────────────────────────────────────
+function burst(x,y,color,n=18){
+  for(let i=0;i<n;i++){
+    const angle=Math.random()*Math.PI*2;
+    const spd=1.5+Math.random()*5.5;
+    particles.push({
+      x,y,
+      vx:Math.cos(angle)*spd,
+      vy:Math.sin(angle)*spd-1, // slight upward bias so burst "rises"
+      life:0,maxLife:380+Math.random()*420,
+      color,
+      size:1.2+Math.random()*4.5
+    });
+  }
+}
+
+// Ring shockwave — expands outward from explosion center
+function ringBurst(x,y,color){
+  particles.push({x,y,vx:0,vy:0,life:0,maxLife:320,color,size:4,ring:true,ringR:2});
+}
+
+// Large dramatic burst for golden/clutch kills
+function bigBurst(x,y){
+  burst(x,y,'#ffee44',14); // gold core
+  burst(x,y,'#ffffff',8);  // white flash
+  burst(x,y,'#ff8800',10); // orange outer
+  ringBurst(x,y,'rgba(255,220,0,0.7)');
+  // spray some larger slow embers
+  for(let i=0;i<8;i++){
+    const angle=Math.random()*Math.PI*2;
+    const spd=0.5+Math.random()*2;
+    particles.push({x,y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd-0.5,
+      life:0,maxLife:700+Math.random()*500,color:'#ffcc00',size:3+Math.random()*3});
+  }
+}
+
+// ─── SHIP ─────────────────────────────────────────────────────────────────
+const ship={
+  x:0,y:0,angle:0,
+  thruster:0,recoil:0,
+  init(){this.x=PLAY_X+PLAY_W/2;this.y=H-55;this.angle=0;},
+  update(dt){
+    this.x+=(PLAY_X+PLAY_W/2-this.x)*0.08;
+    this.thruster=(this.thruster+dt*0.005)%(Math.PI*2);
+    if(this.recoil>0)this.recoil=Math.max(0,this.recoil-dt*0.3);
+    // rotate toward the current target character
+    let targetX=W/2;
+    if(target&&!target.dying){
+      targetX=getCharX(target,Math.min(target.completedSyls,target.chars.length-1));
+    }
+    const dx=targetX-this.x;
+    const desired=Math.atan2(dx,200)*0.55; // max ~0.5 rad tilt
+    this.angle+=(desired-this.angle)*0.07;
+  },
+  draw(){
+    const ox=this.x,oy=this.y+this.recoil;
+    ctx.save();
+    ctx.translate(ox,oy);
+    ctx.rotate(this.angle);
+    const x=0,y=0;
+
+    // engine glow
+    const eg=ctx.createRadialGradient(x,y+20,0,x,y+20,30);
+    eg.addColorStop(0,'rgba(0,120,255,0.4)');eg.addColorStop(1,'rgba(0,0,255,0)');
+    ctx.fillStyle=eg;
+    ctx.beginPath();ctx.ellipse(x,y+24,22,14,0,0,Math.PI*2);ctx.fill();
+
+    // thruster flame
+    ctx.shadowBlur=15;ctx.shadowColor='#0088ff';
+    const flameH=8+Math.sin(this.thruster)*4;
+    ctx.fillStyle='rgba(0,150,255,0.7)';
+    ctx.beginPath();ctx.moveTo(x-8,y+16);ctx.lineTo(x,y+16+flameH);ctx.lineTo(x+8,y+16);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(150,230,255,0.9)';
+    ctx.beginPath();ctx.moveTo(x-4,y+16);ctx.lineTo(x,y+12+flameH);ctx.lineTo(x+4,y+16);ctx.closePath();ctx.fill();
+
+    // body
+    ctx.shadowBlur=20;ctx.shadowColor='#00ffff';ctx.fillStyle='#00ddff';
+    ctx.beginPath();ctx.moveTo(x,y-22);ctx.lineTo(x-14,y+16);ctx.lineTo(x-6,y+10);
+    ctx.lineTo(x,y+14);ctx.lineTo(x+6,y+10);ctx.lineTo(x+14,y+16);ctx.closePath();ctx.fill();
+
+    // cockpit
+    ctx.fillStyle='rgba(200,240,255,0.85)';ctx.shadowColor='#aaeeff';
+    ctx.beginPath();ctx.ellipse(x,y-6,5,8,0,0,Math.PI*2);ctx.fill();
+
+    // wing accents
+    ctx.strokeStyle='rgba(0,255,255,0.5)';ctx.lineWidth=1;ctx.shadowBlur=6;
+    ctx.beginPath();ctx.moveTo(x-14,y+16);ctx.lineTo(x-20,y+4);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+14,y+16);ctx.lineTo(x+20,y+4);ctx.stroke();
+    ctx.restore();
+  }
+};
+
+// ─── BULLETS ──────────────────────────────────────────────────────────────
+function fireMicroBullet(tx,ty){
+  ship.recoil=Math.min((ship.recoil||0)+2.5,7);
+  // muzzle flash at ship tip
+  const tipX=ship.x-Math.sin(ship.angle)*22;
+  const tipY=(ship.y+ship.recoil)-Math.cos(ship.angle)*22;
+  particles.push({x:tipX,y:tipY,vx:(Math.random()-.5)*1.5,vy:-Math.random()*2,
+    life:0,maxLife:80,color:'#ffffff',size:3});
+  bullets.push({
+    x:ship.x,y:ship.y-22,
+    tx,ty,micro:true,progress:0,
+    startX:ship.x,startY:ship.y-22,
+    speed:0.016 // faster so impact is immediate
+  });
+}
+
+function fireBullet(word,charIdx,isFinal){
+  // used only for mode 3 final kill shot
+  ship.recoil=8;
+  burst(ship.x,ship.y-20,'#00ffff',8);
+  const cx=getCharX(word,charIdx||Math.floor(word.chars.length/2));
+  bullets.push({
+    x:ship.x,y:ship.y-22,
+    tx:cx,ty:word.y,
+    word,isFinal:true,
+    progress:0,startX:ship.x,startY:ship.y-22,speed:0.006
+  });
+  sfxFire(true);
+}
+
+function updateBullets(dt){
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    b.progress+=dt*b.speed;
+    if(b.progress>=1){
+      if(b.micro){
+        // cosmetic only — small spark
+        burst(b.tx,b.ty,'#44ffcc',3);
+      } else if(b.isFinal&&b.word){
+        hitWord(b.word,b.tx,b.ty);
+      }
+      bullets.splice(i,1);
+    }else{
+      b.x=b.startX+(b.tx-b.startX)*b.progress;
+      b.y=b.startY+(b.ty-b.startY)*b.progress;
+    }
+  }
+}
+
+function drawBullets(){
+  for(const b of bullets){
+    ctx.save();
+    // elongated laser streak — draw as a line in the direction of travel
+    const dx=b.tx-b.startX, dy=b.ty-b.startY;
+    const len=Math.sqrt(dx*dx+dy*dy)||1;
+    const nx=dx/len, ny=dy/len; // unit direction
+    const bx=b.x, by=b.y;
+    const trailLen=b.micro?28:45;
+
+    if(b.micro){
+      // bright plasma bolt: white hot tip fading to orange
+      ctx.shadowBlur=16;ctx.shadowColor='#ff6600';
+      ctx.lineWidth=3;
+      const grad=ctx.createLinearGradient(bx,by,bx-nx*trailLen,by-ny*trailLen);
+      grad.addColorStop(0,'rgba(255,255,255,0.95)');
+      grad.addColorStop(0.25,'rgba(255,200,50,0.8)');
+      grad.addColorStop(1,'rgba(255,80,0,0)');
+      ctx.strokeStyle=grad;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx-nx*trailLen,by-ny*trailLen);ctx.stroke();
+      // bright tip dot
+      ctx.fillStyle='#ffffff';ctx.shadowBlur=8;ctx.shadowColor='#ffffff';
+      ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
+    } else {
+      ctx.shadowBlur=18;ctx.shadowColor='#ffdd00';
+      ctx.lineWidth=4;
+      const grad=ctx.createLinearGradient(bx,by,bx-nx*trailLen,by-ny*trailLen);
+      grad.addColorStop(0,'rgba(255,255,200,1)');
+      grad.addColorStop(0.3,'rgba(255,220,0,0.8)');
+      grad.addColorStop(1,'rgba(255,100,0,0)');
+      ctx.strokeStyle=grad;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx-nx*trailLen,by-ny*trailLen);ctx.stroke();
+      ctx.fillStyle='#ffffff';ctx.shadowBlur=12;
+      ctx.beginPath();ctx.arc(bx,by,3.5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ─── SOUND (Web Audio API) ────────────────────────────────────────────────
+let _ac=null;
+function ac(){
+  if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)();
+  return _ac;
+}
+function tone(freq,dur,vol,type='square',slide=0){
+  try{
+    const a=ac(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);
+    o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);
+    if(slide) o.frequency.linearRampToValueAtTime(freq+slide,a.currentTime+dur);
+    g.gain.setValueAtTime(vol*sfxVol,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.start();o.stop(a.currentTime+dur);
+  }catch(e){}
+}
+function sfxType(){
+  // pitch climbs with streak — you can HEAR your combo building
+  const pitch=520+Math.min(streak,25)*16; // 520 → 920 Hz over 25 streak
+  tone(pitch,0.03,0.08,'square');
+}
+function sfxFire(isFinal){
+  if(isFinal){ tone(880,0.05,0.18,'sawtooth',200); tone(440,0.08,0.12,'square'); }
+  else { tone(660,0.04,0.12,'square',80); }
+}
+function sfxHit(){ tone(300,0.06,0.1,'sawtooth',-100); }
+function sfxDestroy(){
+  // rising victory blip — "you got it!"
+  tone(500,0.04,0.22,'square',400);
+  setTimeout(()=>tone(900,0.05,0.28,'square',200),45);
+  setTimeout(()=>tone(1200,0.1,0.22,'square',0),100);
+}
+function sfxLoseLife(){
+  tone(220,0.1,0.3,'sawtooth',-60);
+  setTimeout(()=>tone(150,0.25,0.3,'sawtooth',-50),120);
+  setTimeout(()=>tone(100,0.4,0.25,'sawtooth',-30),260);
+}
+
+// ─── AUDIO PRONUNCIATION ───────────────────────────────────────────────────
+// Speaks the Chinese character/syllable using browser TTS when syllable typed
+let _ttsVoice=null;
+function _loadVoice(){
+  if(_ttsVoice) return;
+  const voices=window.speechSynthesis.getVoices();
+  // prefer zh-CN, fall back to any Chinese voice
+  _ttsVoice=voices.find(v=>v.lang==='zh-CN')
+    ||voices.find(v=>v.lang.startsWith('zh'))
+    ||null;
+}
+window.speechSynthesis&&window.speechSynthesis.addEventListener&&
+  window.speechSynthesis.addEventListener('voiceschanged',_loadVoice);
+setTimeout(_loadVoice,500); // fallback init
+
+function speakChar(ch){
+  if(!audioMode||!window.speechSynthesis) return;
+  try{
+    // Always cancel current speech and play the newest character.
+    // Fast typing = you hear the last char completed. Slow = you hear each one.
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(ch);
+    u.lang='zh-CN';
+    u.rate=0.72; // slightly slower so tones are clearly audible
+    u.pitch=1.0;
+    u.volume=ttsVol;
+    if(_ttsVoice) u.voice=_ttsVoice;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function sfxCountdownBeep(n){
+  // countdown beeps always play at full volume — bypass sfxVol
+  try{
+    const a=ac(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);
+    o.type='square';
+    o.frequency.value=n===1?1047:587;
+    g.gain.setValueAtTime(0.55,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+(n===1?0.22:0.14));
+    o.start();o.stop(a.currentTime+0.25);
+  }catch(e){}
+}
+
+function toggleAudio(){
+  audioMode=!audioMode;
+  const btn=document.getElementById('audio-btn');
+  if(btn) btn.textContent=(audioMode?'🔊 AUDIO: ON':'🔇 AUDIO: OFF');
+  if(audioMode) resumeMusic(); else pauseMusic();
+}
+
+// ─── AMBIENT MUSIC ────────────────────────────────────────────────────────────
+// Procedural space-ambient soundtrack via Web Audio API.
+// Drone pad (4 detuned sines) + slow arpeggio sparkles in A-minor pentatonic.
+// Completely separate from sfxVol — has its own musicVol slider.
+let musicVol=0.38;
+let _musicGain=null,_musicNodes=[],_musicPlaying=false,_musicArpTimer=null;
+const _ARP=[220,261.6,329.6,392,440,523.3,659.3]; // A minor + neighbours
+
+function startMusic(){
+  if(!audioMode||_musicPlaying) return;
+  try{
+    const a=ac();
+    if(a.state==='suspended') a.resume();
+    _musicGain=a.createGain();
+    _musicGain.gain.setValueAtTime(0,a.currentTime);
+    _musicGain.gain.linearRampToValueAtTime(musicVol*0.32,a.currentTime+4);
+    // warm lowpass so drone never cuts through SFX or TTS
+    const lp=a.createBiquadFilter();
+    lp.type='lowpass';lp.frequency.value=700;lp.Q.value=0.4;
+    _musicGain.connect(lp);lp.connect(a.destination);
+    _musicNodes.push(lp);
+    // drone: 4 detuned sines — A2 chord (A2, E3, A3, slightly flat A3)
+    [[55,0],[55,14],[82.4,0],[110,-10]].forEach(([f,det])=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.type='sine';o.frequency.value=f;o.detune.value=det;
+      g.gain.value=0.28;
+      o.connect(g);g.connect(_musicGain);
+      o.start();
+      _musicNodes.push(o,g);
+    });
+    _musicPlaying=true;
+    _scheduleArp();
+  }catch(e){}
+}
+
+function _scheduleArp(){
+  if(!_musicPlaying) return;
+  try{
+    const a=ac();
+    const freq=_ARP[Math.floor(Math.random()*_ARP.length)];
+    const o=a.createOscillator(),g=a.createGain();
+    o.type='sine';o.frequency.value=freq;
+    g.gain.setValueAtTime(0,a.currentTime);
+    g.gain.linearRampToValueAtTime(musicVol*0.055,a.currentTime+0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+1.6);
+    o.connect(g);g.connect(a.destination);
+    o.start();o.stop(a.currentTime+1.7);
+  }catch(e){}
+  _musicArpTimer=setTimeout(_scheduleArp,2200+Math.random()*3800);
+}
+
+function stopMusic(){
+  _musicPlaying=false;
+  if(_musicArpTimer){clearTimeout(_musicArpTimer);_musicArpTimer=null;}
+  try{
+    if(_musicGain){
+      const a=ac();
+      _musicGain.gain.linearRampToValueAtTime(0,a.currentTime+1.2);
+    }
+    setTimeout(()=>{
+      _musicNodes.forEach(n=>{try{n.stop?n.stop(0):n.disconnect();}catch(e){}});
+      _musicNodes=[];_musicGain=null;
+    },1300);
+  }catch(e){_musicNodes=[];_musicGain=null;}
+}
+
+function pauseMusic(){
+  if(!_musicGain) return;
+  try{const a=ac();_musicGain.gain.linearRampToValueAtTime(0,a.currentTime+0.4);}catch(e){}
+}
+
+function resumeMusic(){
+  if(!_musicGain||!_musicPlaying) return;
+  try{const a=ac();_musicGain.gain.linearRampToValueAtTime(musicVol*0.32,a.currentTime+0.5);}catch(e){}
+}
+function sfxLaunch(){
+  // bass punch → rising shimmer — hits hard then brightens
+  try{
+    const a=ac();
+    const punch=()=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.connect(g);g.connect(a.destination);
+      o.type='sawtooth';o.frequency.setValueAtTime(55,a.currentTime);
+      o.frequency.linearRampToValueAtTime(110,a.currentTime+0.18);
+      g.gain.setValueAtTime(0.7,a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.25);
+      o.start();o.stop(a.currentTime+0.25);
+    };
+    punch();
+    setTimeout(()=>{ tone(220,0.1,0.4,'sawtooth',200); },80);
+    setTimeout(()=>{ tone(440,0.08,0.3,'square',300); tone(880,0.06,0.2,'square',0); },200);
+    setTimeout(()=>{ tone(1047,0.12,0.35,'square',200); },320);
+  }catch(e){}
+}
+function sfxWrong(){ tone(180,0.12,0.2,'sawtooth',-40); }
+function sfxWave(){
+  tone(660,0.08,0.15,'square',220);
+  setTimeout(()=>tone(880,0.12,0.18,'square',0),100);
+}
+function sfxWaveClear(){
+  // ascending fanfare
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.15,0.22,'square'),i*90));
+}
+function sfxMotherSpawn(){
+  tone(110,0.4,0.35,'sawtooth',-30);
+  setTimeout(()=>tone(80,0.5,0.3,'sawtooth',-20),200);
+}
+function sfxMenuWoosh(){
+  try{
+    const a=ac(),buf=a.createBuffer(1,Math.floor(a.sampleRate*0.55),a.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5)*0.9;
+    const src=a.createBufferSource();src.buffer=buf;
+    const f=a.createBiquadFilter();f.type='bandpass';
+    f.frequency.setValueAtTime(1800,a.currentTime);
+    f.frequency.linearRampToValueAtTime(200,a.currentTime+0.55);
+    f.Q.value=0.4;
+    const g=a.createGain();g.gain.setValueAtTime(0.6,a.currentTime);
+    g.gain.linearRampToValueAtTime(0,a.currentTime+0.55);
+    src.connect(f);f.connect(g);g.connect(a.destination);src.start();
+  }catch(e){}
+}
+
+// ─── HIT WORD ─────────────────────────────────────────────────────────────
+function hitWord(w,bx,by){
+  if(w.dying)return;
+  w.dying=true;
+  const ex=bx||w.x,ey=by||w.y;
+  sfxDestroy();
+  if(w.isGolden){
+    bigBurst(ex,ey);
+    screenShake=Math.min(screenShake+7,16);
+  } else {
+    burst(ex,ey,'#ffffff',10);burst(ex,ey,'#88ccff',18);burst(ex,ey,'#aaddff',8);
+    ringBurst(ex,ey,'rgba(0,200,255,0.5)');
+    screenShake=Math.min(screenShake+3,14);
+  }
+
+  const streakMult=1+Math.floor(streak/5);
+  const goldenMult=w.isGolden?3:1;
+  // Level number for scoring — extract numeric part of level string
+  const lvlNum=parseInt(selHSKLevel)||1;
+  const pts=w.word.c.length*10*lvlNum*streakMult*goldenMult;
+  score+=pts;wordsDestroyed++;
+
+  // Update SRS with timing signals
+  const now=Date.now();
+  const hesMs = w.firstKeyTime ? w.firstKeyTime-w.spawnTime : 99999;
+  const respMs = w.responseStartTime ? now-w.responseStartTime : 99999;
+  const q = srsQuality(true, respMs, hesMs, w.sessionErrors||0);
+  srsUpdate(w.word, q);
+  wordsCommandedSet.add(w.word.t); // track unique words mastered
+
+  // clutch save — word was in the bottom 25% of screen when destroyed
+  const clutch=(ey||0)>H*0.72;
+  if(clutch){
+    showFlash('⚡ CLUTCH! +'+pts);
+    burst(ex,ey,'#ffff00',25);
+    sfxWaveClear();
+  } else if(w.isGolden){
+    showFlash('★ GOLDEN +'+pts);
+    sfxWaveClear();
+  } else {
+    showFlash('+'+pts+(streakMult>1?' \xd7'+streakMult:''));
+  }
+
+  if(score>hiScore&&!_newBestFlashed){
+    _newBestFlashed=true;
+    setTimeout(()=>showFlash('★ NEW BEST!'),700);
+  }
+
+  updateHUD();
+  // golden words show the cultural "native speaker reveals secret" tip
+  const culturalTip=(w.isGolden&&WORD_TIPS[w.word.t])?WORD_TIPS[w.word.t]:'';
+  wordFlashes.push({c:w.word.c,p:w.word.p,e:w.word.e,
+    tip:culturalTip,golden:!!w.isGolden,
+    x:ex,y:ey-20,vy:culturalTip?-0.45:-0.7,age:0,
+    maxAge:culturalTip?3200:1800,missed:false});
+  if(w===target){target=null;typed='';sylBuf='';updateInputBar();}
+}
+
+// ─── WORD POOL & SPAWN ─────────────────────────────────────────────────────
+function buildPool(){
+  // Build SRS-weighted pool from current HSK version + level
+  let src = getWordPool();
+  if(selMode===1) src=src.filter(w=>w.c.length===1);
+  else if(selMode===2) src=src.filter(w=>w.c.length>=2);
+  if(src.length<8) src=getWordPool(); // relax filter if too few
+
+  // SRS-order: unknown/weak words first, known words fill the back
+  pool = srsSortedPool().filter(w => src.some(s=>s.t===w.t));
+
+  // Cross-level pool for mothership children
+  allLevelsPool = getAllLowerLevels();
+}
+
+let poolIdx=0;
+function pickWord(){
+  if(poolIdx>=pool.length){poolIdx=0;} // loop back, pool already SRS-sorted
+  return pool[poolIdx++];
+}
+
+// Extract the pinyin initial consonant(s) — "zh"/"ch"/"sh" or single letter or "" for vowel-start
+function pinyinInitial(w){
+  const t=(w.t||'').replace(/\s+/g,'');
+  if(/^(zh|ch|sh)/i.test(t)) return t.slice(0,2).toLowerCase();
+  if(/^[bcdfghjklmnpqrstvwxyz]/i.test(t)) return t[0].toLowerCase();
+  return '_vowel'; // ā,ē,ī,ō,ū,ǖ etc — group vowel-starts together loosely
+}
+
+function spawnWord(forcedWord){
+  const onScreen=new Set(falling.filter(f=>!f.dying).map(f=>f.word.t));
+  // Enforce initial-sound diversity — max 1 word per pinyin initial on screen at a time
+  const initialsOnScreen=new Map();
+  falling.filter(f=>!f.dying).forEach(f=>{
+    const init=pinyinInitial(f.word);
+    initialsOnScreen.set(init,(initialsOnScreen.get(init)||0)+1);
+  });
+  // Vowel-start words get slightly more slack since there are fewer of them
+  const maxPerInitial = 1;
+  const maxVowel = 2;
+
+  let word=forcedWord||pickWord();
+  let tries=0;
+  if(!forcedWord){
+    while(tries<60){
+      const init=pinyinInitial(word);
+      const initCount=initialsOnScreen.get(init)||0;
+      const limit = init==='_vowel' ? maxVowel : maxPerInitial;
+      if(!onScreen.has(word.t) && initCount<limit) break;
+      word=pickWord();
+      tries++;
+    }
+  }
+  const fw=new FallingWord(word);
+  // mothership: starts wave 5+ so early waves feel learnable
+  if(!forcedWord&&wave>=5&&Math.random()<0.18){
+    fw.isMother=true;fw.spawned=false;fw.motherSoundPlayed=false;fw.motherVisibleMs=0;
+    fw._pyInfo=null;
+    fw.fontSize=Math.max(fw.fontSize,76);
+    fw.charW=fw.fontSize+4;
+  }
+  // golden bonus word: wave 2+ only, 8% chance, 3× points + cultural reveal
+  if(!forcedWord&&!fw.isMother&&wave>=2&&Math.random()<0.08){
+    fw.isGolden=true;
+    fw.baseSpeed*=1.45; fw.speed=fw.baseSpeed; // golden = harder to catch
+  }
+  // track words appearing this wave for wave tip selection
+  if(!forcedWord) waveWords.push(word);
+  // place within play area with margin = half the word's pixel width + padding
+  const estHalf=(fw.chars.length*(fw.charW||fw.fontSize))/2+20;
+  const spawnMin=PLAY_X+estHalf+10, spawnMax=PLAY_X+PLAY_W-estHalf-10;
+  fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
+  const fwHalf=estHalf;
+  let ok=false,att=0;
+  while(!ok&&att<14){
+    ok=true;
+    for(const f of falling){
+      const fHalf=(f.chars.length*(f._measuredCharW||f.charW||f.fontSize))/2+36;
+      if(Math.abs(f.x-fw.x)<fwHalf+fHalf){
+        ok=false;
+        fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
+        break;
+      }
+    }
+    att++;
+  }
+  falling.push(fw);
+  // First-time character tutorials — trigger once ever per device
+  if(fw.isMother) setTimeout(()=>maybeShowCharTutorial('mothership',fw),800);
+  if(fw.isGolden) setTimeout(()=>maybeShowCharTutorial('golden',fw),600);
+  return fw;
+}
+
+function spawnChildren(mother){
+  // called each spawn cycle — does NOT permanently set mother.spawned
+  const firstChar=mother.word.c[0];
+  const onScreenToneless=new Set(falling.filter(f=>!f.dying).map(f=>f.word.t));
+  const related=allLevelsPool.filter(w=>
+    w.c[0]===firstChar&&w.t!==mother.word.t&&!onScreenToneless.has(w.t)
+  );
+  for(let i=related.length-1;i>0;i--){const j=0|Math.random()*(i+1);[related[i],related[j]]=[related[j],related[i]];}
+
+  burst(mother.x,mother.y,'#ff6600',22);
+  showFlash('⚠ SPLIT!');
+  sfxMotherSpawn();
+
+  for(let i=0;i<2;i++){
+    const word=related[i]||pickWord();
+    const child=new FallingWord(word);
+    const sign=i===0?-1:1;
+    // start children well away from mother — at least 280px to each side
+    const spreadX=280+Math.random()*80;
+    child.x=Math.max(PLAY_X+70,Math.min(PLAY_X+PLAY_W-70,mother.x+sign*spreadX));
+    child.y=mother.y;
+    // angle creates additional drift as they fall
+    const deg=(15+Math.random()*20)*Math.PI/180;
+    const spd=mother.speed*2.8;
+    child.vx=sign*Math.sin(deg)*spd;
+    child.speed=Math.max(0.35,Math.cos(deg)*spd);
+    child.baseSpeed=child.speed;
+    falling.push(child);
+  }
+}
+
+// ─── INPUT & TARGETING ────────────────────────────────────────────────────
+function handleKey(e){
+  if(gState!=='playing')return;
+  if(m3Pending){
+    const n=parseInt(e.key);
+    if(n>=1&&n<=4) selectM3Option(n-1);
+    return;
+  }
+  if(e.key==='Escape'){togglePause();return;}
+  // TAB = use a hint — reveals pinyin of targeted/most urgent word for 3s
+  if(e.key==='Tab'){
+    e.preventDefault();
+    if(hints>0){
+      hints--;
+      hintActiveTimer=3000;
+      updateHintsHUD();
+      showFlash('💡 HINT!');
+      tone(880,0.06,0.2,'square',0); // gentle chime
+    } else {
+      showFlash('NO HINTS LEFT');sfxWrong();
+    }
+    return;
+  }
+  // space bar = confirm (mirrors Chinese IME: type pinyin, press space to select)
+  if(e.key===' '){
+    if(pendingExplosion){
+      clearTimeout(pendingExplosion.tid);
+      const{wref}=pendingExplosion;
+      pendingExplosion=null;
+      if(!wref.dying) hitWord(wref,wref.x,wref.y);
+    }
+    return;
+  }
+  if(e.key==='Enter'||e.key==='Backspace'){
+    if(pendingExplosion){
+      clearTimeout(pendingExplosion.tid);
+      const{wref}=pendingExplosion;
+      pendingExplosion=null;
+      if(!wref.dying) hitWord(wref,wref.x,wref.y);
+      return;
+    }
+    if(sylBuf||target){
+      shakeInputBar();sfxWrong();
+      sylBuf='';typed='';
+      falling.forEach(fw=>fw.targeted=false);
+      if(target){target.completedSyls=0;target=null;}
+      updateInputBar();
+    }
+    return;
+  }
+  if(e.key.length===1&&/[a-z]/i.test(e.key)){
+    processChar(e.key.toLowerCase());
+  }
+}
+
+function shakeInputBar(){
+  const el=document.getElementById('input-bar');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  setTimeout(()=>el.classList.remove('shake'),380);
+}
+
+function getCharX(fw,idx){
+  const n=fw.chars.length;
+  return fw.x-(n-1)*fw.charW/2+idx*fw.charW;
+}
+
+function processChar(ch){
+  const c=normInput(ch);
+  const active=falling.filter(f=>!f.dying);
+  const testBuf=sylBuf+c;
+
+  // ── LOCKED to a specific target ──────────────────────────────────────────
+  if(target&&!target.dying){
+    const curSyl=target.syllables[target.completedSyls];
+    if(!curSyl||!curSyl.startsWith(testBuf)){
+      wrongLetters++;target.sessionErrors=(target.sessionErrors||0)+1;shakeInputBar();sfxWrong();return;
+    }
+    sylBuf=testBuf;
+    sfxType();
+    fireMicroBullet(getCharX(target,target.completedSyls),target.y);
+    if(testBuf===curSyl) _completeSyllable();
+    else{
+      typed=target.syllables.slice(0,target.completedSyls).join('')+sylBuf;
+      updateInputBar();
+    }
+    return;
+  }
+
+  // ── NO target yet — multi-candidate mode ─────────────────────────────────
+  const candidates=active.filter(fw=>{
+    const syl=fw.syllables[fw.completedSyls];
+    return syl&&syl.startsWith(testBuf);
+  });
+
+  if(candidates.length===0){wrongLetters++;shakeInputBar();sfxWrong();return;}
+
+  // valid — update sylBuf and highlight all candidates
+  sylBuf=testBuf;
+  sfxType();
+  active.forEach(fw=>fw.targeted=false);
+  candidates.forEach(fw=>fw.targeted=true);
+
+  // find exact syllable completions among candidates
+  const exact=candidates.filter(fw=>fw.syllables[fw.completedSyls]===testBuf);
+  const lockPool=exact.length>0?exact:candidates.length===1?candidates:null;
+
+  if(lockPool){
+    const fw=lockPool.reduce((a,b)=>b.y>a.y?b:a);
+    candidates.forEach(f=>{if(f!==fw)f.targeted=false;});
+    target=fw;
+    // Record timing for SRS signals
+    if(!target.firstKeyTime) target.firstKeyTime=Date.now();
+    if(!target.responseStartTime) target.responseStartTime=Date.now();
+    fireMicroBullet(getCharX(target,target.completedSyls),target.y);
+    if(exact.length>0) _completeSyllable();
+    else{
+      typed=sylBuf;
+      updateInputBar();
+    }
+  } else {
+    // still multiple candidates — fire toward the lowest one as visual hint
+    const urgent=candidates.reduce((a,b)=>b.y>a.y?b:a);
+    fireMicroBullet(getCharX(urgent,urgent.completedSyls),urgent.y);
+    typed=testBuf;
+    updateInputBar();
+  }
+}
+
+function _completeSyllable(){
+  const charIdx=target.completedSyls;
+  const cx=getCharX(target,charIdx);
+  // speak the character that just completed — audio pronunciation feature
+  speakChar(target.chars[charIdx]);
+  target.completedSyls++;
+  burst(cx,target.y,'#00ff88',5);
+  streak++;longestStreak=Math.max(streak,longestStreak);
+  document.getElementById('hv-streak').textContent=streak;
+  if(streak>0&&streak%5===0){
+    const mult=1+Math.floor(streak/10);
+    const title=streak>=30?'GRANDMASTER':streak>=20?'UNSTOPPABLE':streak>=10?'SHARPSHOOTER':'SHARP';
+    showFlash(title+' · '+streak+' ×'+mult+' bonus');
+    sfxWaveClear();
+  }
+  sylBuf='';
+
+  // erhua (儿化) auto-complete: if next remaining syllable is the 儿 suffix, skip it
+  if(target.isErhua&&target.completedSyls===target.syllables.length-1){
+    const erCx=getCharX(target,target.completedSyls);
+    speakChar('儿');
+    target.completedSyls++;
+    burst(erCx,target.y,'#00ff88',3);
+  }
+
+  const wordDone=target.completedSyls>=target.syllables.length;
+  if(wordDone){
+    if(selMode===3){
+      openM3Panel(target);
+      typed='';updateInputBar();
+    } else {
+      const wref=target;
+      target=null;typed='';sylBuf='';updateInputBar();
+      // rising charge tone — gives TTS time, space bar fires immediately
+      tone(700,0.05,0.18,'square',400);
+      setTimeout(()=>tone(1000,0.04,0.12,'square',0),100);
+      if(pendingExplosion) clearTimeout(pendingExplosion.tid);
+      const _tid=setTimeout(()=>{
+        pendingExplosion=null;
+        if(!wref.dying) hitWord(wref,wref.x,wref.y);
+      },380);
+      pendingExplosion={wref,tid:_tid};
+    }
+    return;
+  }
+  typed=target.syllables.slice(0,target.completedSyls).join('')+sylBuf;
+  updateInputBar();
+}
+
+// ─── MODE 3 CHAR SELECTION ────────────────────────────────────────────────
+function openM3Panel(fw){
+  m3Pending=fw;
+  const correct=fw.word;
+  // pick 3 distractors from pool
+  const distractors=pool.filter(w=>w!==correct&&w.c!==correct.c).slice(0,20);
+  const picks=[];
+  const usedIdx=new Set();
+  while(picks.length<3&&picks.length<distractors.length){
+    const idx=0|Math.random()*distractors.length;
+    if(!usedIdx.has(idx)){usedIdx.add(idx);picks.push(distractors[idx]);}
+  }
+  const opts=[correct,...picks];
+  // shuffle
+  for(let i=opts.length-1;i>0;i--){const j=0|Math.random()*(i+1);[opts[i],opts[j]]=[opts[j],opts[i]];}
+  document.getElementById('m3-py').textContent=correct.p;
+  document.getElementById('m3-en').textContent=correct.e.toUpperCase();
+  const container=document.getElementById('m3-opts');
+  container.innerHTML='';
+  opts.forEach((w,i)=>{
+    const d=document.createElement('div');
+    d.className='opt';
+    // Show character AND its English meaning so player has enough context to choose
+    d.innerHTML=`<div class="on">${i+1}</div><div class="oc">${w.c}</div><div style="font-size:.82em;color:#88aacc;margin:2px 0;font-family:'Noto Sans','Segoe UI',Arial,sans-serif">${w.p}</div><div class="om">${w.e}</div>`;
+    d.onclick=()=>selectM3Option(i,opts,correct,fw);
+    container.appendChild(d);
+  });
+  mode3DimActive=true; // dim canvas while box is visible
+  // store for keyboard
+  m3Pending._opts=opts;m3Pending._correct=correct;m3Pending._fw=fw;
+  document.getElementById('mode3-panel').style.display='block';
+}
+
+function selectM3Option(idx){
+  if(!m3Pending)return;
+  const opts=m3Pending._opts;
+  const correct=m3Pending._correct;
+  const fw=m3Pending._fw;
+  if(!opts||idx>=opts.length)return;
+  if(opts[idx]===correct){
+    document.getElementById('mode3-panel').style.display='none';
+    mode3DimActive=false; // remove canvas dim
+    fireBullet(fw,Math.floor(fw.chars.length/2),true);
+    typed='';target=null;m3Pending=null;updateInputBar();
+  } else {
+    // wrong choice
+    const optEls=document.querySelectorAll('.opt');
+    if(optEls[idx]){
+      optEls[idx].classList.add('wrong');
+      setTimeout(()=>optEls[idx].classList.remove('wrong'),400);
+    }
+    // lose half a life? or just flash. Let's just flash for now.
+    showFlash('WRONG!');
+  }
+}
+
+// ─── LIFE LOSS ────────────────────────────────────────────────────────────
+function loseLife(fw){
+  lives--;wordsMissed++;missesThisWave++;streak=0;
+  document.getElementById('hv-streak').textContent=0;
+  screenShake=14;
+  burst(W/2,H-55,'#ff0044',30);
+  sfxLoseLife();
+  updateLivesHUD();
+  if(fw){
+    // SRS update: mark this word as failed
+    srsUpdate(fw.word, 1);
+    // floating definition flash in red — "you lost a life to this word"
+    wordFlashes.push({c:fw.word.c,p:fw.word.p,e:fw.word.e,
+      x:fw.x,y:H-90,vy:-0.5,age:0,maxAge:2400,missed:true});
+    // add to missed words recap (cap at 12)
+    if(missedWords.length<12&&!missedWords.find(m=>m.t===fw.word.t)){
+      missedWords.push({c:fw.word.c,p:fw.word.p,e:fw.word.e,t:fw.word.t});
+    }
+  }
+  if(lives<=0) gameOver();
+}
+
+// ─── HUD & UI ─────────────────────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('hv-score').textContent=score;
+  document.getElementById('hv-wave').textContent=wave;
+  document.getElementById('hv-streak').textContent=streak;
+  document.getElementById('hv-hs').textContent=Math.max(hiScore,score);
+}
+function updateHintsHUD(){
+  const el=document.getElementById('hints-display');
+  if(el) el.textContent=`💡×${hints}`;
+}
+function updateLivesHUD(){
+  const el=document.getElementById('lives-row');
+  el.innerHTML='';
+  for(let i=0;i<3;i++){
+    const s=document.createElement('span');
+    s.style.cssText=`font-size:18px;filter:${i<lives?'drop-shadow(0 0 6px #00ffff)':'grayscale(1) opacity(0.2)'}`;
+    s.textContent='▲';
+    s.style.color=i<lives?'#00ffff':'#334';
+    el.appendChild(s);
+  }
+}
+function updateInputBar(){
+  document.getElementById('input-text').textContent=typed;
+}
+function showFlash(msg){
+  flashMessage=msg;flashTimer=800;
+}
+
+// ─── WAVE SYSTEM (count-based) ────────────────────────────────────────────
+function checkWave(dt){
+  waveTimer+=dt;
+  const active=falling.filter(f=>!f.dying);
+
+  if(waveState==='starting'){
+    // 3s countdown — 1s per digit so players can read each number
+    if(waveTimer>3000){
+      waveState='fighting';waveTimer=0;spawnTimer=0;
+      buildPool(); // refresh SRS-weighted pool at the start of every wave
+    }
+    return;
+  }
+
+  if(waveState==='finishing'){
+    if(waveTimer>2800){
+      wave++;
+      // ── Designed difficulty curve ─────────────────────────────────────
+      // Words per wave: starts small, climbs steadily
+      wordsPerWave=4+wave*2;                           // 6,8,10,12,14…
+      // Max simultaneous: adds 1 slot every 2 waves so it feels gradual
+      maxSimultaneous=Math.min(12,2+Math.floor(wave/2)); // 2,2,3,3,4,4,5,5,6…
+      // Spawn gap: starts roomy, tightens but never below 800ms
+      spawnInterval=Math.max(800,Math.round(2400-wave*130)); // 2270→1880→1490→1100→800
+      // Speed: starts BELOW base (0.75×) so wave 1 feels learnable,
+      //        reaches full speed at wave 4, exceeds base from wave 5 onward
+      speedMult=Math.max(0.75,0.75+(wave-1)*0.09);      // 0.75→0.84→0.93→1.02→1.11…
+      wordsSpawnedThisWave=0;
+      waveState='starting';waveTimer=0;
+      updateHUD();
+      setTimeout(()=>sfxCountdownBeep(3),80);
+      setTimeout(()=>sfxCountdownBeep(2),1080);
+      setTimeout(()=>sfxCountdownBeep(1),2080);
+    }
+    return;
+  }
+
+  // 'fighting' — spawn up to quota; first word spawns immediately
+  if(wordsSpawnedThisWave<wordsPerWave&&active.length<maxSimultaneous){
+    spawnTimer+=dt;
+    const effectiveInterval=wordsSpawnedThisWave===0?0:spawnInterval;
+    if(spawnTimer>=effectiveInterval){
+      spawnTimer=0;
+      spawnWord();
+      wordsSpawnedThisWave++;
+    }
+  }
+
+  // mothership: sound on entry, then spawn children in cycles (up to 3×, each faster)
+  for(const fw of active){
+    if(!fw.isMother) continue;
+    if(fw.y>10){
+      if(!fw.motherSoundPlayed){fw.motherSoundPlayed=true;sfxMotherSpawn();}
+      if(!fw._spawnLocked){
+        // stop spawning children when mother is too close to the bottom — not fair
+        if(fw.y>H*0.60){ fw._spawnLocked=true; }
+        else {
+          fw.motherVisibleMs=(fw.motherVisibleMs||0)+dt;
+          const spawnCount=fw.spawnCount||0;
+          const threshold=Math.max(3500,10000-spawnCount*2500);
+          if(fw.motherVisibleMs>=threshold){
+            fw.motherVisibleMs=0;
+            fw.spawnCount=(spawnCount)+1;
+            spawnChildren(fw);
+            if(fw.spawnCount>=3) fw._spawnLocked=true;
+          }
+        }
+      }
+    }
+  }
+
+  // wave clear when all spawned words are gone
+  if(wordsSpawnedThisWave>=wordsPerWave&&active.length===0&&waveState==='fighting'){
+    waveState='finishing';waveTimer=0;
+    if(missesThisWave===0){
+      const bonus=wave*200;
+      score+=bonus;
+      // Award a hint for a perfect wave (cap at 5)
+      if(hints<5){ hints++; updateHintsHUD(); }
+      showFlash('✓ PERFECT WAVE! +'+bonus+' 💡 +1 HINT');
+      sfxWaveClear();
+      burst(W/2,H/2,'#00ff88',30);burst(W/2,H/2,'#ffffff',15);
+    } else {
+      showFlash('✓ WAVE '+wave+' CLEAR!');
+      sfxWaveClear();
+    }
+    missesThisWave=0;
+    currentWaveTip=pickWaveTip(waveWords); // pick cultural tip from this wave's words
+    waveWords=[];     // reset for next wave
+    updateHUD();
+  }
+
+  // also reset waveWords at wave start
+  if(waveState==='finishing'){
+    const newWaveCheck=waveTimer;
+    if(newWaveCheck>2800) waveWords=[];
+  }
+}
+
+// ─── PAUSE ────────────────────────────────────────────────────────────────
+function togglePause(){
+  if(gState==='playing'){
+    gState='paused';
+    document.getElementById('mode3-panel').style.display='none';
+    if(m3Pending){m3Pending=null;}
+    buildPauseVocab(); // populate vocabulary inventory
+    pauseMusic();
+    document.getElementById('pause-overlay').style.display='flex';
+    document.getElementById('pause-btn').textContent='▶ RESUME';
+  } else if(gState==='paused'){
+    gState='playing';
+    document.getElementById('pause-overlay').style.display='none';
+    document.getElementById('pause-btn').textContent='⏸ PAUSE';
+    resumeMusic();
+    lastTime=performance.now();
+    requestAnimationFrame(loop);
+  }
+}
+
+function quitToMenu(){
+  stopMusic();
+  gState='menu';
+  document.getElementById('pause-overlay').style.display='none';
+  document.getElementById('pause-btn').style.display='none';
+  document.getElementById('pinyin-btn').style.display='none';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('lives-row').style.display='none';
+  document.getElementById('hints-row').style.display='none';
+  document.getElementById('input-bar').style.display='none';
+  document.getElementById('mode3-panel').style.display='none';
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('menu-scr').style.display='block';
+  document.getElementById('gameover-scr').style.display='none';
+  requestAnimationFrame(menuLoop);
+}
+
+function togglePinyin(){
+  showPinyin=!showPinyin;
+  updatePinyinBtn();
+}
+function updatePinyinBtn(){
+  const label=showPinyin?'ON':'OFF';
+  document.getElementById('pinyin-btn').textContent='PINYIN: '+label;
+  document.getElementById('py-menu-btn').textContent='PINYIN HINTS: '+label;
+  const pl=document.getElementById('pause-py-label');
+  if(pl) pl.textContent=label;
+  // style the menu button as selected when on
+  document.getElementById('py-menu-btn').classList.toggle('sel',showPinyin);
+}
+
+// ─── GAME LOOP ─────────────────────────────────────────────────────────────
+function loop(ts){
+  if(gState!=='playing') return; // stop loop; startGame() will restart it
+  const dt=Math.min(ts-lastTime,50);lastTime=ts;frameCount++;
+
+  // clear
+  ctx.clearRect(0,0,W,H);
+
+  // screen shake
+  let _shook=false;
+  if(screenShake>0){
+    ctx.save();
+    ctx.translate((Math.random()-.5)*screenShake,(Math.random()-.5)*screenShake);
+    screenShake=Math.max(0,screenShake-dt*0.12);
+    _shook=true;
+  }
+
+  // background
+  drawBG();
+
+  // launch flash — brief cyan bloom that fades on game start
+  if(launchFlash>0){
+    const lf=launchFlash;
+    ctx.save();
+    ctx.globalAlpha=lf*0.55;
+    ctx.fillStyle='rgba(0,220,255,1)';
+    ctx.fillRect(PLAY_X,0,PLAY_W,H);
+    ctx.restore();
+    launchFlash=Math.max(0,launchFlash-dt*0.006);
+  }
+
+  // last-life emergency pulse — whole viewport breathes red
+  if(lives===1){
+    const pulse=0.5+0.5*Math.sin(Date.now()*0.004);
+    const rg=ctx.createRadialGradient(W/2,H,0,W/2,H,Math.max(W,H)*0.7);
+    rg.addColorStop(0,'rgba(180,0,0,0)');
+    rg.addColorStop(1,`rgba(180,0,0,${pulse*0.12})`);
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+  }
+
+  // ship
+  ship.update(dt);
+  ship.draw();
+
+  // hint timer — tick down and draw pinyin over the most-urgent word
+  if(hintActiveTimer>0){
+    hintActiveTimer=Math.max(0,hintActiveTimer-dt);
+    const hintTarget=target||(falling.filter(f=>!f.dying).sort((a,b)=>b.y-a.y)[0]);
+    if(hintTarget){
+      const hintAlpha=Math.min(1,hintActiveTimer/500);
+      ctx.save();
+      ctx.globalAlpha=hintAlpha;
+      ctx.font=`bold 20px 'Noto Sans','Segoe UI',Arial,sans-serif`;
+      ctx.fillStyle='#ffdd44';ctx.shadowBlur=14;ctx.shadowColor='#ffdd00';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(hintTarget.word.p, hintTarget.x, hintTarget.y - hintTarget.fontSize*0.8);
+      ctx.restore();
+    }
+  }
+
+  // update & draw falling words
+  checkWave(dt);
+  // While Mode 3 selection is open, slow all other words to 30% — gives time to choose
+  const m3Open=mode3DimActive&&document.getElementById('mode3-panel').style.display!=='none';
+  const dtForFalling=m3Open?dt*0.3:dt;
+
+  for(let i=falling.length-1;i>=0;i--){
+    const fw=falling[i];
+    const done=fw.update(dtForFalling);
+    updateGolden(fw,dtForFalling); // check golden downgrade thresholds
+    fw.draw();
+    if(done){falling.splice(i,1);continue;}
+    if(!fw.dying&&fw.reachedBottom()){
+      fw.dying=true;loseLife(fw);
+      if(fw===target){target=null;typed='';sylBuf='';}
+    }
+  }
+
+  // mode3 dim — when character selection box is visible, dim everything else
+  if(mode3DimActive&&document.getElementById('mode3-panel').style.display!=='none'){
+    ctx.save();ctx.globalAlpha=0.45;
+    ctx.fillStyle='rgba(1,1,12,1)';
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  // danger zone — red bleed at bottom when words are close
+  {
+    const dangerFalling=falling.filter(f=>!f.dying&&f.y>H*0.55);
+    if(dangerFalling.length>0){
+      const maxD=Math.max(...dangerFalling.map(f=>(f.y-H*0.55)/(H*0.35)));
+      const g=ctx.createLinearGradient(0,H*0.55,0,H-60);
+      g.addColorStop(0,'rgba(200,0,0,0)');
+      g.addColorStop(1,`rgba(200,0,0,${Math.min(0.18,maxD*0.18)})`);
+      ctx.fillStyle=g;ctx.fillRect(0,H*0.55,W,H*0.45);
+    }
+  }
+
+  // bullets
+  updateBullets(dt);
+  drawBullets();
+
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.life+=dt;
+    const a=1-p.life/p.maxLife;
+    if(a<=0){particles.splice(i,1);continue;}
+    if(p.ring){
+      // expanding ring shockwave
+      p.ringR=2+(p.life/p.maxLife)*80;
+      ctx.save();ctx.globalAlpha=a*0.6;
+      ctx.strokeStyle=p.color;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.ringR,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+    } else {
+      p.x+=p.vx*(dt/16);p.y+=p.vy*(dt/16);p.vy+=0.06*(dt/16);
+      ctx.globalAlpha=a;
+      ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // word definition flashes (destroyed + missed words float up with meaning)
+  for(let i=wordFlashes.length-1;i>=0;i--){
+    const f=wordFlashes[i];
+    f.age+=dt;f.y+=f.vy*(dt/16);
+    if(f.age>f.maxAge){wordFlashes.splice(i,1);continue;}
+    const prog=f.age/f.maxAge;
+    const a=Math.max(0,prog<0.7?0.9:0.9*(1-(prog-0.7)/0.3));
+    ctx.save();ctx.globalAlpha=a;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+
+    if(f.golden&&f.tip){
+      // cultural reveal — full "native speaker secret" treatment
+      ctx.font=`bold 28px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
+      ctx.shadowBlur=18;ctx.shadowColor='rgba(255,200,0,0.8)';ctx.fillStyle='#ffdd44';
+      ctx.fillText(f.c,f.x,f.y);
+      ctx.font=`15px 'Noto Sans SC',sans-serif`;
+      ctx.fillStyle='rgba(255,210,80,0.85)';ctx.shadowBlur=6;
+      ctx.fillText(f.p,f.x,f.y+24);
+      // tip — wrap into lines
+      ctx.font=`13px 'Noto Sans SC',sans-serif`;
+      ctx.shadowBlur=0;
+      const maxTW=Math.min(W-100,300);
+      const tw=f.tip.split(' ');
+      let tl='',tlines=[];
+      for(const w of tw){
+        const tt=tl+w+' ';
+        if(ctx.measureText(tt).width>maxTW&&tl){tlines.push(tl.trim());tl=w+' ';}
+        else tl=tt;
+      }
+      if(tl.trim()) tlines.push(tl.trim());
+      tlines.slice(0,3).forEach((l,li)=>{
+        ctx.fillStyle=`rgba(255,${200-li*20},${60+li*10},${0.9-li*0.1})`;
+        ctx.fillText(l,f.x,f.y+42+li*17);
+      });
+    } else {
+      const col=f.missed?'#ff4455':'#ffffff';
+      ctx.font=`bold 32px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
+      ctx.shadowBlur=12;ctx.shadowColor=col;ctx.fillStyle=col;
+      ctx.fillText(f.c,f.x,f.y);
+      ctx.font=`500 18px 'Noto Sans SC',sans-serif`;
+      ctx.fillStyle=f.missed?'#ff8888':'#88ccff';ctx.shadowBlur=5;
+      ctx.fillText(f.p,f.x,f.y+28);
+      ctx.font=`bold 15px 'Noto Sans',Arial,sans-serif`;
+      ctx.fillStyle=f.missed?'rgba(255,130,130,0.9)':'rgba(190,220,255,0.88)';
+      ctx.shadowBlur=0;ctx.letterSpacing='0.5px';
+      ctx.fillText(f.e,f.x,f.y+48);
+    }
+    ctx.restore();
+  }
+
+  // wave transition overlay
+  if(waveState==='starting'||waveState==='finishing'){
+    const dur=waveState==='starting'?3000:2800;
+    const progress=Math.min(1,waveTimer/dur);
+    const fade=waveState==='starting'
+      ?Math.min(1,progress*12)*(1-Math.max(0,(progress-0.9)/0.1))
+      :Math.min(1,(1-progress)*4);
+    ctx.save();
+    ctx.globalAlpha=Math.max(0,fade)*0.88;
+    ctx.fillStyle='rgba(1,1,10,0.75)';
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=Math.max(0,fade);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+
+    if(waveState==='finishing'){
+      ctx.font='bold 52px Orbitron,monospace';
+      ctx.shadowBlur=40;ctx.shadowColor='#00ff88';
+      ctx.fillStyle='#00ff88';
+      ctx.fillText(`WAVE ${wave} CLEAR`,W/2,currentWaveTip?H/2-70:H/2-20);
+      // wave tip — TikTok micro-lesson
+      if(currentWaveTip){
+        const tipFade=Math.min(1,progress>0.15?1:(progress/0.15));
+        ctx.globalAlpha=Math.max(0,fade)*tipFade;
+        ctx.font=`bold 17px 'Noto Sans SC',sans-serif`;
+        ctx.shadowBlur=6;ctx.shadowColor='rgba(200,220,255,0.5)';
+        ctx.fillStyle='rgba(200,230,255,0.92)';
+        // wrap tip across two lines if long
+        const maxW=Math.min(W-80,680);
+        ctx.save();
+        ctx.font=`17px 'Noto Sans SC',sans-serif`;
+        const words=currentWaveTip.split(' ');
+        let line='',lines=[];
+        for(const w of words){
+          const test=line+w+' ';
+          if(ctx.measureText(test).width>maxW&&line){lines.push(line.trim());line=w+' ';}
+          else line=test;
+        }
+        if(line.trim()) lines.push(line.trim());
+        ctx.restore();
+        ctx.font=`bold 17px 'Noto Sans SC',sans-serif`;
+        lines.slice(0,3).forEach((l,i)=>{
+          ctx.fillText(l,W/2,H/2-20+i*26);
+        });
+      }
+      ctx.font='bold 18px Orbitron,monospace';
+      ctx.shadowBlur=10;ctx.globalAlpha=Math.max(0,fade);
+      ctx.fillStyle='rgba(150,200,160,0.6)';
+      ctx.fillText('GET READY',W/2,H/2+(currentWaveTip?110:26));
+    } else {
+      // 3-2-1 countdown: each digit holds for exactly 1 second
+      const digit=3-Math.min(2,Math.floor(progress*3));
+      // pulse brightness within each second so digit feels alive
+      const withinSec=(progress*3)%1;
+      const bright=1-withinSec*0.3;
+      ctx.font='bold 36px Orbitron,monospace';
+      ctx.shadowBlur=20;ctx.shadowColor='#00ffff';
+      ctx.fillStyle=`rgba(0,${Math.round(200*bright)},${Math.round(255*bright)},0.9)`;
+      ctx.fillText(`WAVE ${wave}`,W/2,H/2-56);
+      // wave name — narrative milestone that makes wave numbers meaningful
+      ctx.font=`500 18px 'Noto Sans',Arial,sans-serif`;
+      ctx.shadowBlur=6;ctx.fillStyle=`rgba(160,210,255,${0.7*bright})`;
+      ctx.fillText(waveName(wave).toUpperCase(),W/2,H/2-28);
+      ctx.font='bold 110px Orbitron,monospace';
+      ctx.shadowBlur=50;ctx.shadowColor='#ff8800';
+      ctx.fillStyle=`rgba(255,${Math.round(160*bright)},0,${0.9+bright*0.1})`;
+      ctx.fillText(String(digit),W/2,H/2+46);
+      ctx.font='bold 18px Orbitron,monospace';
+      ctx.shadowBlur=6;ctx.fillStyle='rgba(180,200,220,0.45)';
+      ctx.fillText('GET READY',W/2,H/2+102);
+    }
+    ctx.restore();
+  }
+
+  // flash message
+  if(flashTimer>0){
+    flashTimer-=dt;
+    const a=Math.min(1,flashTimer/200);
+    ctx.save();
+    ctx.globalAlpha=a;
+    ctx.font='bold 26px Orbitron,monospace';
+    ctx.fillStyle='#ffff44';
+    ctx.shadowBlur=20;ctx.shadowColor='#ffaa00';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(flashMessage,W/2,H/2-80);
+    ctx.restore();
+  }
+
+  if(_shook) ctx.restore(); // end screen shake transform
+
+  requestAnimationFrame(loop);
+}
+
+// nebula cloud definitions — seeded once
+const NEBULAE=(()=>{
+  const nb=[];
+  const cols=['rgba(30,0,80,','rgba(0,20,80,','rgba(0,60,40,','rgba(60,0,40,','rgba(10,30,80,'];
+  for(let i=0;i<6;i++) nb.push({
+    x:Math.random(),y:Math.random()*0.7,
+    rx:0.18+Math.random()*0.22,ry:0.1+Math.random()*0.14,
+    col:cols[i%cols.length],
+    phase:Math.random()*Math.PI*2,spd:0.00008+Math.random()*0.00006
+  });
+  return nb;
+})();
+
+function drawBG(){
+  // deep space base
+  const bg=ctx.createRadialGradient(W/2,H*0.6,0,W/2,H*0.6,Math.max(W,H));
+  bg.addColorStop(0,'#060618');bg.addColorStop(1,'#010106');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  // nebulae — slow drifting colour clouds
+  ctx.save();
+  for(const nb of NEBULAE){
+    const cx=(nb.x*W+(Math.sin(frameCount*nb.spd+nb.phase)*W*0.04))%W;
+    const cy=nb.y*H;
+    const pulse=0.04+0.025*Math.sin(frameCount*nb.spd*1.3+nb.phase);
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,nb.rx*W);
+    g.addColorStop(0,nb.col+(pulse+0.02)+')');
+    g.addColorStop(0.5,nb.col+(pulse*0.4)+')');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.globalAlpha=1;
+    ctx.fillStyle=g;
+    ctx.save();
+    ctx.scale(1,nb.ry/nb.rx);
+    ctx.beginPath();ctx.arc(cx,cy*(nb.rx/nb.ry),nb.rx*W,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // stars
+  ctx.save();
+  for(const s of stars){
+    const x=((s.x+frameCount*0.04)%(W+40));
+    const y=s.y%H;
+    const twinkle=0.3+0.7*Math.abs(Math.sin(frameCount*0.018+s.bright*9));
+    ctx.globalAlpha=twinkle*0.75;
+    ctx.fillStyle='#cce0ff';
+    ctx.beginPath();ctx.arc(x,y,s.size,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+
+  // scanlines
+  ctx.save();ctx.globalAlpha=0.025;
+  for(let y=0;y<H;y+=4){ctx.fillStyle='#000';ctx.fillRect(0,y,W,2);}
+  ctx.restore();
+
+  // play area dark overlay outside the 680px column — visually separates field
+  if(PLAY_X>0){
+    ctx.fillStyle='rgba(0,0,0,0.55)';
+    ctx.fillRect(0,0,PLAY_X,H);
+    ctx.fillRect(PLAY_X+PLAY_W,0,W-(PLAY_X+PLAY_W),H);
+    // subtle edge lines
+    ctx.save();ctx.shadowBlur=8;ctx.shadowColor='rgba(0,100,200,0.4)';
+    ctx.strokeStyle='rgba(0,100,200,0.18)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PLAY_X,0);ctx.lineTo(PLAY_X,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PLAY_X+PLAY_W,0);ctx.lineTo(PLAY_X+PLAY_W,H);ctx.stroke();
+    ctx.restore();
+  }
+
+  // bottom platform glow (within play area)
+  const pg=ctx.createLinearGradient(0,H-90,0,H);
+  pg.addColorStop(0,'rgba(0,180,255,0)');pg.addColorStop(1,'rgba(0,80,180,0.15)');
+  ctx.fillStyle=pg;ctx.fillRect(PLAY_X,H-90,PLAY_W,90);
+  ctx.save();ctx.shadowBlur=12;ctx.shadowColor='#0066cc';
+  ctx.strokeStyle='rgba(0,160,255,0.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(PLAY_X,H-62);ctx.lineTo(PLAY_X+PLAY_W,H-62);ctx.stroke();
+  ctx.restore();
+}
+
+// ─── GAME FLOW ─────────────────────────────────────────────────────────────
+function startGame(){
+  const overlay=document.getElementById('overlay');
+  // dramatic launch — impact punch then brightness
+  sfxLaunch();
+  overlay.classList.add('exiting');
+  setTimeout(()=>{
+    overlay.classList.remove('exiting');
+    overlay.style.display='none';
+    _launchGame();
+  },480);
+}
+
+function _launchGame(){
+  document.getElementById('menu-scr').style.display='block';
+  document.getElementById('gameover-scr').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('lives-row').style.display='flex';
+  document.getElementById('hints-row').style.display='block';
+  document.getElementById('input-bar').style.display='block';
+  document.getElementById('mode3-panel').style.display='none';
+  document.getElementById('pause-btn').style.display='block';
+  document.getElementById('pause-btn').textContent='⏸ PAUSE';
+  document.getElementById('pinyin-btn').style.display='block';
+  updatePinyinBtn();
+
+  gState='playing';
+  score=0;lives=3;wave=1;frameCount=0;gameTime=0;
+  hints=1;hintActiveTimer=0;updateHintsHUD(); // reset hint system
+  typed='';sylBuf='';target=null;falling=[];bullets=[];particles=[];
+  // Wave 1 starting parameters — designed to feel learnable
+  spawnTimer=0;spawnInterval=2400;speedMult=0.75;poolIdx=0;
+  m3Pending=null;flashMessage='';flashTimer=0;
+  if(pendingExplosion){clearTimeout(pendingExplosion.tid);pendingExplosion=null;}
+  streak=0;longestStreak=0;wordsDestroyed=0;wordsMissed=0;wrongLetters=0;
+  screenShake=0;wordFlashes=[];missesThisWave=0;_newBestFlashed=false;
+  missedWords=[];waveWords=[];currentWaveTip='';launchFlash=1.0;wordsCommandedSet=new Set();
+  waveState='fighting';waveTimer=0;
+  startMusic();
+  wordsPerWave=6;wordsSpawnedThisWave=0;maxSimultaneous=2; // only 2 on screen in wave 1
+
+  buildPool();
+  ship.init();
+  updateHUD();updateLivesHUD();updateInputBar();
+
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+}
+
+function gameOver(){
+  gState='gameover';
+  if(score>hiScore){hiScore=score;localStorage.setItem('hsk_hi',hiScore);}
+  // personal best wave
+  const newWaveRecord=wave>bestWave;
+  if(newWaveRecord){bestWave=wave;localStorage.setItem('hsk_bestwave',bestWave);}
+  document.getElementById('go-score').textContent=score+' PTS';
+  document.getElementById('go-hs').textContent='BEST SCORE: '+hiScore;
+  document.getElementById('go-wave').textContent=waveName(wave);
+  document.getElementById('go-bestwv').textContent=waveName(bestWave);
+  const newBestEl=document.getElementById('go-newbest');
+  if(newWaveRecord&&wave>1){newBestEl.style.display='block';newBestEl.textContent='★ NEW RECORD — WAVE '+wave+'!';}
+  else newBestEl.style.display='none';
+  const total=wordsDestroyed+wordsMissed;
+  document.getElementById('go-acc').textContent=total?Math.round(wordsDestroyed/total*100)+'%':'--';
+  document.getElementById('go-streak').textContent=longestStreak;
+  document.getElementById('go-words').textContent=wordsCommandedSet.size+' unique HSK '+selHSKVersion+' L'+selHSKLevel+' words';
+  // missed words recap — personal study list generated by the game
+  const missedEl=document.getElementById('go-missed');
+  const missedList=document.getElementById('go-missed-list');
+  missedList.innerHTML='';
+  if(missedWords.length>0){
+    missedEl.style.display='block';
+    missedWords.forEach(w=>{
+      const d=document.createElement('div');
+      d.style.cssText='border:1px solid rgba(255,60,80,0.4);padding:14px 18px;text-align:center;min-width:130px;max-width:180px;border-radius:4px';
+      d.innerHTML=`<div style="font-family:'Noto Sans SC',sans-serif;font-size:2.4em;color:#ff6677;line-height:1.1">${w.c}</div>`+
+        `<div style="font-size:1em;color:#cc9999;margin:6px 0 3px;font-family:'Noto Sans',Arial,sans-serif;letter-spacing:.5px">${w.p}</div>`+
+        `<div style="font-size:.88em;color:#997777;letter-spacing:.8px;line-height:1.4;font-family:'Noto Sans',Arial,sans-serif">${w.e}</div>`;
+      missedList.appendChild(d);
+    });
+  } else {
+    missedEl.style.display='none';
+  }
+  document.getElementById('hud').style.display='none';
+  document.getElementById('lives-row').style.display='none';
+  document.getElementById('hints-row').style.display='none';
+  document.getElementById('input-bar').style.display='none';
+  document.getElementById('mode3-panel').style.display='none';
+  document.getElementById('pause-btn').style.display='none';
+  document.getElementById('pinyin-btn').style.display='none';
+  document.getElementById('gameover-scr').style.display='block';
+  document.getElementById('menu-scr').style.display='none';
+  document.getElementById('overlay').style.display='flex';
+  stopMusic();
+}
+
+function showMenu(){
+  gState='menu';
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('menu-scr').style.display='block';
+  document.getElementById('gameover-scr').style.display='none';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('lives-row').style.display='none';
+  document.getElementById('hints-row').style.display='none';
+  document.getElementById('input-bar').style.display='none';
+  document.getElementById('mode3-panel').style.display='none';
+  requestAnimationFrame(menuLoop);
+}
+
+// ─── WAVE NAMES — narrative milestones ────────────────────────────────────
+const WAVE_NAMES={
+  1:'First Steps',2:'Finding Rhythm',3:'Picking Up Speed',
+  4:'The Pressure Builds',5:'The Real Test',6:'No Mercy',
+  7:'Battle Hardened',8:'Expert Territory',9:'Elite',
+  10:'Master Level',11:'Champion',12:'Legendary'
+};
+function waveName(n){ return WAVE_NAMES[n]||'Wave '+n; }
+
+// ─── MENU CONTROLS ─────────────────────────────────────────────────────────
+function setMode(n){
+  selMode=n;
+  document.querySelectorAll('#mode-row button').forEach((b,i)=>{b.classList.toggle('sel',i===n-1);});
+}
+
+// ─── KEYBOARD ──────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(gState==='menu'&&e.key==='Enter'){startGame();return;}
+  if(gState==='gameover'&&e.key==='Enter'){startGame();return;}
+  if((gState==='playing'||gState==='paused')&&e.key==='Escape'){togglePause();e.preventDefault();return;}
+  if(gState==='playing'){handleKey(e);e.preventDefault();}
+});
+
+// ─── IDLE ANIMATION (menu) ─────────────────────────────────────────────────
+function menuLoop(ts){
+  if(gState!=='menu'){return;}
+  ctx.clearRect(0,0,W,H);
+  frameCount++;lastTime=ts;
+  drawBG();
+  requestAnimationFrame(menuLoop);
+}
+requestAnimationFrame(menuLoop);
+
+// ─── MOBILE INPUT ─────────────────────────────────────────────────────────
+const mobileInput=document.getElementById('mobile-input');
+// tap anywhere on canvas during play to focus the hidden input (shows phone keyboard)
+document.getElementById('c').addEventListener('touchstart',()=>{
+  if(gState==='playing') mobileInput.focus();
+},{passive:true});
+// sync mobile input events into the same handleKey pathway
+mobileInput.addEventListener('keydown',e=>{
+  if(gState==='playing'||gState==='paused'){
+    handleKey(e);
+    if(gState==='playing') e.preventDefault();
+  }
+});
+// also handle compositionend for IME (some Android keyboards)
+mobileInput.addEventListener('input',()=>{
+  const val=mobileInput.value.replace(/[^a-zA-Z]/g,'').toLowerCase();
+  mobileInput.value='';
+  if(val&&gState==='playing'){
+    for(const ch of val){
+      typed+=ch; sfxType(); matchTarget();
+    }
+    updateInputBar();
+  }
+});
+
+// ─── SPOTLIGHT TUTORIAL ENGINE ─────────────────────────────────────────────
+const TOUR_STEPS=[
+  {label:'YOUR SCORE',sel:'#hv-score',text:'This is your score. Destroy words faster and keep a streak going to multiply points. Golden words glow yellow and are worth 3×.'},
+  {label:'WAVE',sel:'#hv-wave',text:'The current wave. Waves get harder as you go — more words on screen, falling faster. Waves never end within a level; they just keep escalating.'},
+  {label:'STREAK 🔥',sel:'#hv-streak',text:'Your combo streak. Every syllable you type correctly adds to it. Reach 10 for SHARPSHOOTER, 20 for UNSTOPPABLE, 30 for GRANDMASTER.'},
+  {label:'HOW TO SHOOT',sel:'canvas',text:'Type the toneless pinyin of any falling character. The first letter targets it automatically. Complete the pinyin → SPACE to fire instantly. Type fast — the game rewards speed.'},
+];
+
+let _tutSteps=[];
+let _tutIdx=0;
+
+function runTour(steps){
+  _tutSteps=steps||TOUR_STEPS;
+  _tutIdx=0;
+  document.getElementById('spotlight-overlay').style.display='block';
+  showTutStep();
+}
+
+function showTutStep(){
+  if(_tutIdx>=_tutSteps.length){endTour();return;}
+  const step=_tutSteps[_tutIdx];
+  const sc=document.getElementById('spotlight-canvas');
+  sc.width=window.innerWidth;sc.height=window.innerHeight;
+  const ctx2=sc.getContext('2d');
+  ctx2.clearRect(0,0,sc.width,sc.height);
+  ctx2.fillStyle='rgba(1,1,12,0.82)';ctx2.fillRect(0,0,sc.width,sc.height);
+
+  // cutout around the target element
+  const el=document.querySelector(step.sel);
+  const box=document.getElementById('spotlight-box');
+  if(el){
+    const r=el.getBoundingClientRect();
+    const pad=16;
+    ctx2.clearRect(r.left-pad,r.top-pad,r.width+pad*2,r.height+pad*2);
+    ctx2.strokeStyle='rgba(0,255,255,0.6)';ctx2.lineWidth=2;
+    ctx2.strokeRect(r.left-pad,r.top-pad,r.width+pad*2,r.height+pad*2);
+    // position callout box
+    const bx=r.left+r.width/2-160;
+    const by=r.bottom+pad+10;
+    box.style.left=Math.max(8,Math.min(window.innerWidth-330,bx))+'px';
+    box.style.top=Math.min(window.innerHeight-200,by)+'px';
+  } else {
+    box.style.left='50%';box.style.top='50%';
+    box.style.transform='translate(-50%,-50%)';
+  }
+  document.getElementById('spotlight-title').textContent=step.label;
+  document.getElementById('spotlight-text').textContent=step.text;
+}
+
+function advanceTutorial(){
+  _tutIdx++;
+  if(_tutIdx<_tutSteps.length) showTutStep();
+  else endTour();
+}
+
+function endTour(){
+  document.getElementById('spotlight-overlay').style.display='none';
+  localStorage.setItem('hsk_tour_done','1');
+  document.getElementById('tour-btn-row').style.display='none';
+  // if game is paused, just resume
+}
+
+// First-time character tutorials (mothership, golden)
+const CHAR_TUTORIALS={
+  mothership:{
+    label:'⚠ MOTHERSHIP',
+    text:'This word has an orange ring. Destroy it quickly! If you let it fall, it will SPLIT into 2 child words sharing its first character — then split again and again. The arc shows how close it is to spawning. Kill it first.',
+    key:'hsk_tut_mother'
+  },
+  golden:{
+    label:'★ GOLDEN WORD',
+    text:'This golden word is worth 3× points — but only if you destroy it fast. The longer it falls, the easier it becomes and the fewer points you get. Prioritize gold!',
+    key:'hsk_tut_golden'
+  }
+};
+
+function maybeShowCharTutorial(type, fw){
+  const cfg=CHAR_TUTORIALS[type];
+  if(!cfg||localStorage.getItem(cfg.key)) return;
+  localStorage.setItem(cfg.key,'1');
+  // Brief pause + spotlight on the character itself
+  const wasState=gState;
+  gState='paused'; // halt game loop
+  setTimeout(()=>{
+    const steps=[{label:cfg.label,sel:'canvas',text:cfg.text,_fw:fw}];
+    runTour(steps);
+    // When tour ends, resume
+    const orig=endTour;
+    window.endTour=()=>{
+      orig.call(this);
+      gState=wasState;
+      if(gState==='playing'){lastTime=performance.now();requestAnimationFrame(loop);}
+      window.endTour=orig;
+    };
+  },100);
+}
+
+// ─── GOLDEN CHARACTER DOWNGRADE ─────────────────────────────────────────────
+// Position thresholds: golden word morphs to an easier known word as it falls
+const GOLDEN_THRESHOLDS=[0.30,0.55,0.75]; // fraction of H
+
+function goldenDowngrade(fw){
+  if(!fw.isGolden||fw.dying) return;
+  const easier=srsGetStrongWords(10);
+  const onScreen=new Set(falling.filter(f=>!f.dying&&f!==fw).map(f=>f.word.t));
+  const candidates=easier.filter(w=>w.t!==fw.word.t&&!onScreen.has(w.t));
+  if(!candidates.length) return; // no strong words yet — skip
+
+  const newWord=candidates[Math.floor(Math.random()*candidates.length)];
+  fw.word=newWord;
+  fw.syllables=newWord.p.trim().split(/\s+/).map(s=>stripTones(s));
+  fw.tonedSyls=newWord.p.trim().split(/\s+/);
+  fw.chars=[...newWord.c];
+  fw.isErhua=(fw.chars.length>=2&&fw.chars[fw.chars.length-1]==='儿'&&fw.syllables[fw.syllables.length-1]==='er');
+  fw._pyInfo=null; // clear size cache
+  fw.charW=fw.fontSize+4;
+  fw.goldenHits=(fw.goldenHits||0)+1; // track how many times downgraded
+
+  // Clear targeting if player was typing this word
+  if(target===fw){target=null;typed='';sylBuf='';updateInputBar();}
+  burst(fw.x,fw.y,'#ffaa00',8);
+  showFlash('⬇ DOWNGRADED');
+}
+
+// Called each frame in the game loop for each golden word
+function updateGolden(fw,dt){
+  if(!fw.isGolden||fw.dying||fw._spawnLocked) return;
+  const hits=fw.goldenHits||0;
+  if(hits>=3){fw._spawnLocked=true;return;} // max 3 downgrades
+  const threshold=GOLDEN_THRESHOLDS[hits];
+  if(!threshold||fw.y<H*threshold) return;
+
+  // Grace: if player is actively typing this word, delay 4s
+  if(target===fw&&sylBuf.length>0){
+    fw._graceTimer=(fw._graceTimer||0)+dt;
+    if(fw._graceTimer<4000) return;
+  }
+  fw._graceTimer=0;
+  fw.goldenHits=hits+1;
+  goldenDowngrade(fw);
+}
+
+// ─── PAUSE VOCABULARY INVENTORY ─────────────────────────────────────────────
+function buildPauseVocab(){
+  const active=falling.filter(f=>!f.dying);
+  const panel=document.getElementById('pause-vocab');
+  const list=document.getElementById('pause-vocab-list');
+  list.innerHTML='';
+  if(!active.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  active.forEach(fw=>{
+    const d=document.createElement('div');
+    d.style.cssText='border-left:3px solid rgba(0,200,255,0.4);padding:6px 10px;background:rgba(0,30,60,0.3)';
+    d.innerHTML=`<span style="font-family:'Noto Sans SC',sans-serif;font-size:1.4em;color:#e0f4ff">${fw.word.c}</span>`+
+      `<span style="color:#4a8ab0;font-size:.8em;margin-left:10px">${fw.word.p}</span>`+
+      `<div style="color:#445566;font-size:.72em;margin-top:2px">${fw.word.e}</div>`;
+    list.appendChild(d);
+  });
+}
+
+// ─── MODE 3 DIM EFFECT ──────────────────────────────────────────────────────
+let mode3DimActive=false;
+function openMode3WithDim(fw){
+  mode3DimActive=true;
+  openM3Panel(fw);
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+setMode(1);
+document.getElementById('hv-hs').textContent=hiScore;
+// Show one-time tour button if player has never done the tour
+if(!localStorage.getItem('hsk_tour_done')){
+  document.getElementById('tour-btn-row').style.display='block';
+}
+// Kick off async data load — shows menu content once done
+loadWordData();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s *)",
+      "Bash(curl -sL *)",
+      "Bash(curl -fsSL *)",
+      "Bash(node --check *)",
+      "Bash(lsof -ti:*)",
+      "Bash(kill *)",
+      "Bash(mkdir -p *)",
+      "Bash(touch *)",
+      "Bash(open *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"🎮 HSK BLASTER QA REMINDER: If you changed gameplay code this session (spawning, targeting, waves, audio, rendering, input), run /qa before ending. If this was 3+ sessions of feature work, run /code-review. Check CLAUDE.md for full protocol.\"}'",
+            "statusMessage": "Checking QA reminder..."
+          }
+        ]
+      }
+    ]
+  }
+}
