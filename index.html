@@ -572,12 +572,12 @@ class FallingWord{
   constructor(word){
     this.word=word;
     this.x=80+Math.random()*(W-160);
-    this.y=-this.fontSize; // spawn just above viewport so first frame they're invisible
     const sizeRoll=Math.random();
     // Smaller range: Desktop 45–88px, Mobile 36–64px — reduces overlap
     const fMin=screenMode==='mobile'?36:45;
     const fRange=screenMode==='mobile'?28:43;
     this.fontSize=selMode===3?(screenMode==='mobile'?16:20):Math.round(fMin+sizeRoll*fRange);
+    this.y=-this.fontSize; // spawn just above viewport, after fontSize is known
     // Speed: fast enough to feel energetic, variance from size
     const sizeSpeedFactor=1.3-sizeRoll*0.5;
     const tierRoll=Math.random();
