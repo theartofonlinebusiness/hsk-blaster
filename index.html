@@ -13,6 +13,20 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
 .screen{text-align:center;max-width:640px;padding:24px 20px;width:100%}
 h1{font-size:2.4em;font-weight:900;color:#00ffff;text-shadow:0 0 20px #00ffff,0 0 50px #0088ff;line-height:1.1;margin-bottom:6px}
 @media(min-height:700px){#overlay{align-items:center}.screen{padding:40px 30px}h1{font-size:3.2em;margin-bottom:8px}}
+/* Mobile: compress everything to fit one screen */
+@media(max-height:780px){
+  h1{font-size:1.8em;margin-bottom:2px}
+  .sub{font-size:.68em;margin-bottom:8px;letter-spacing:1px}
+  .sec{margin:8px 0 4px;font-size:.68em}
+  .screen{padding:12px 16px}
+  .go-btn{margin-top:10px;padding:10px 36px;font-size:.9em}
+  .tip{display:none}
+  #tour-btn-row button{padding:5px 12px;font-size:.62em}
+  button{padding:7px 12px;font-size:.72em}
+  #mode-row button{width:100%!important;max-width:340px}
+  #mode-row .mode-desc{display:none}
+  #mode-row button br{display:none}
+}
 .sub{color:#4a6a8a;font-size:.82em;letter-spacing:3px;margin-bottom:18px}
 .sec{color:#445566;font-size:.75em;letter-spacing:3px;margin:16px 0 8px;text-transform:uppercase}
 @media(min-height:700px){.sub{margin-bottom:36px}.sec{margin:24px 0 10px}}
@@ -146,15 +160,15 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
     <div class="btn-row" id="mode-row" style="flex-direction:column;gap:8px;align-items:center">
       <button onclick="setMode(1)" id="mb1" class="sel" style="width:340px;text-align:left;padding:12px 18px">
         <span style="font-size:1em">MODE 1 &nbsp;—&nbsp; SINGLE CHARACTERS</span><br>
-        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">Chinese character falls · type its pinyin to shoot it</span>
+        <span class="mode-desc" style="font-size:.7em;opacity:.65;letter-spacing:1px">Chinese character falls · type its pinyin to shoot it</span>
       </button>
       <button onclick="setMode(2)" id="mb2" style="width:340px;text-align:left;padding:12px 18px">
         <span style="font-size:1em">MODE 2 &nbsp;—&nbsp; FULL WORDS</span><br>
-        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">Multi-character word falls · type the complete pinyin</span>
+        <span class="mode-desc" style="font-size:.7em;opacity:.65;letter-spacing:1px">Multi-character word falls · type the complete pinyin</span>
       </button>
       <button onclick="setMode(3)" id="mb3" style="width:340px;text-align:left;padding:12px 18px">
         <span style="font-size:1em">MODE 3 &nbsp;—&nbsp; ENGLISH → CHINESE &nbsp;<span style="color:#ff6644">★ Hard</span></span><br>
-        <span style="font-size:.7em;opacity:.65;letter-spacing:1px">English meaning falls · type pinyin · pick the right characters</span>
+        <span class="mode-desc" style="font-size:.7em;opacity:.65;letter-spacing:1px">English meaning falls · type pinyin · pick the right characters</span>
       </button>
     </div>
     <div class="sec">Options</div>
