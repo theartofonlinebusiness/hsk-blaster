@@ -2214,7 +2214,7 @@ function _launchGame(){
   document.getElementById('pause-btn').style.display='block';
   document.getElementById('pause-btn').textContent='⏸ PAUSE';
   document.getElementById('pinyin-btn').style.display='block';
-  document.getElementById('mob-bar').style.display='flex';
+  if(screenMode==='mobile') document.getElementById('mob-bar').style.display='flex';
   updatePinyinBtn();
 
   gState='playing';
