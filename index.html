@@ -44,6 +44,18 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
 .hl{color:#445566;font-size:.76em;letter-spacing:2px}
 .hv{color:#00ffff;font-size:1.7em;text-shadow:0 0 10px #00ffff;margin-top:3px;font-weight:700}
 #lives-row{position:fixed;top:0;left:24px;display:none;gap:8px;z-index:5;pointer-events:none;align-items:center;padding-top:14px}
+@media(max-width:600px){
+  #hud{padding:6px 8px;gap:0;width:100%;left:0;transform:none;justify-content:space-around;background:rgba(5,5,16,.7);border-bottom:1px solid rgba(0,255,255,.08)}
+  .hi{min-width:0;font-size:.85em;padding:4px 2px}
+  .hl{font-size:.58em;letter-spacing:1px}
+  .hv{font-size:1.1em;margin-top:1px}
+  #hv-hs{display:none}
+  .hi:last-child{display:none}
+  #lives-row{left:8px;padding-top:6px;gap:4px}
+  #pause-btn{font-size:.68em!important;padding:5px 10px!important}
+  #pinyin-btn{font-size:.68em!important;padding:5px 10px!important}
+  #hints-row{font-size:.72em!important;padding:3px 8px!important;top:44px!important}
+}
 #input-bar{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);font-size:1em;color:rgba(255,220,80,0.45);letter-spacing:2px;text-align:center;z-index:5;pointer-events:none;display:none}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes shake{0%,100%{transform:translateX(-50%)}15%{transform:translateX(calc(-50% - 8px))}30%{transform:translateX(calc(-50% + 8px))}45%{transform:translateX(calc(-50% - 5px))}60%{transform:translateX(calc(-50% + 5px))}75%{transform:translateX(calc(-50% - 2px))}}
@@ -93,7 +105,7 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
 <div id="lives-row" style="display:none"></div>
 <div id="hints-row" style="display:none;position:fixed;top:52px;right:24px;z-index:5;font-family:Orbitron,monospace;font-size:.88em;color:#ffcc00;letter-spacing:1px;pointer-events:none;background:rgba(5,10,20,.55);padding:4px 10px;border:1px solid rgba(255,200,0,.2)">
   <span id="hints-display">💡×1</span>
-  <span style="color:#667788;font-size:.8em;margin-left:6px">TAB</span>
+  <span style="color:#667788;font-size:.8em;margin-left:6px" id="hint-key-label">TAB</span>
 </div>
 <div id="input-bar" style="display:none"><span id="input-text"></span></div>
 <div id="wave-notice"></div>
@@ -611,10 +623,18 @@ class FallingWord{
     const bottomEdge = H - 80;
     const distFromBottom = Math.max(0, bottomEdge - (this.y + this.fontSize * 0.55));
     const slowZone = H * 0.12; // bottom 12% triggers slowdown
-    const speedMod = distFromBottom < slowZone
-      ? Math.max(0.02, Math.pow(distFromBottom / slowZone, 2.5)) // never fully stops
-      : 1;
-    this.y += this.speed * speedMod * (dt/16);
+    let speedMod;
+    if(distFromBottom < slowZone){
+      speedMod = Math.pow(distFromBottom / slowZone, 2.5);
+      // Track how long this word has been in the danger zone
+      this._dangerMs = (this._dangerMs||0) + dt;
+      // Hard kill after 3.5s in the zone — no infinite crawling
+      if(this._dangerMs > 3500 && !this.dying){ this.dying=true; loseLife(this); }
+    } else {
+      speedMod = 1;
+      this._dangerMs = 0;
+    }
+    this.y += this.speed * Math.max(speedMod, 0.08) * (dt/16);
     // horizontal velocity (children fan out)
     if(this.vx){
       this.x+=this.vx*(dt/16);
@@ -1364,6 +1384,12 @@ function spawnChildren(mother){
 }
 
 // ─── INPUT & TARGETING ────────────────────────────────────────────────────
+function useHint(){
+  if(hints>0){
+    hints--;hintActiveTimer=3000;updateHintsHUD();
+    showFlash('💡 HINT!');tone(880,0.06,0.2,'square',0);
+  } else { showFlash('NO HINTS LEFT');sfxWrong(); }
+}
 function handleKey(e){
   if(gState!=='playing')return;
   if(m3Pending){
@@ -1373,18 +1399,7 @@ function handleKey(e){
   }
   if(e.key==='Escape'){togglePause();return;}
   // TAB = use a hint — reveals pinyin of targeted/most urgent word for 3s
-  if(e.key==='Tab'){
-    e.preventDefault();
-    if(hints>0){
-      hints--;
-      hintActiveTimer=3000;
-      updateHintsHUD();
-      showFlash('💡 HINT!');
-      tone(880,0.06,0.2,'square',0); // gentle chime
-    } else {
-      showFlash('NO HINTS LEFT');sfxWrong();
-    }
-    return;
+  if(e.key==='Tab'){e.preventDefault();useHint();return;
   }
   // space bar = confirm (mirrors Chinese IME: type pinyin, press space to select)
   if(e.key===' '){
@@ -2146,13 +2161,17 @@ function drawBG(){
 // ─── GAME FLOW ─────────────────────────────────────────────────────────────
 function startGame(){
   const overlay=document.getElementById('overlay');
-  // dramatic launch — impact punch then brightness
   sfxLaunch();
+  // Focus mobile keyboard NOW while we're still inside the user gesture (button tap)
+  // iOS only allows focus() from a direct user interaction — setTimeout breaks it
+  if('ontouchstart' in window) mobileInput.focus();
   overlay.classList.add('exiting');
   setTimeout(()=>{
     overlay.classList.remove('exiting');
     overlay.style.display='none';
     _launchGame();
+    // Re-focus after overlay closes in case iOS dismissed it
+    if('ontouchstart' in window) setTimeout(()=>mobileInput.focus(),100);
   },480);
 }
 
@@ -2287,7 +2306,15 @@ requestAnimationFrame(menuLoop);
 
 // ─── MOBILE INPUT ─────────────────────────────────────────────────────────
 const mobileInput=document.getElementById('mobile-input');
-// tap anywhere on canvas during play to focus the hidden input (shows phone keyboard)
+const isTouchDevice='ontouchstart' in window;
+// On mobile: show TAP label on hint row, make it tappable to use hint
+if(isTouchDevice){
+  const lbl=document.getElementById('hint-key-label');
+  if(lbl) lbl.textContent='TAP';
+  const hr=document.getElementById('hints-row');
+  if(hr){hr.style.pointerEvents='all';hr.style.cursor='pointer';hr.addEventListener('touchstart',e=>{e.preventDefault();if(gState==='playing')useHint();},{passive:false});}
+}
+// Tap anywhere on canvas during play to re-focus the hidden input (shows phone keyboard)
 document.getElementById('c').addEventListener('touchstart',()=>{
   if(gState==='playing') mobileInput.focus();
 },{passive:true});
