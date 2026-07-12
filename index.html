@@ -51,6 +51,11 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
   #pause-btn{display:none!important}
   #pinyin-btn{display:none!important}
   #hints-row{top:46px!important;right:8px!important;font-size:.72em!important;padding:3px 8px!important}
+  /* Pause box: fit within 390px screen */
+  #pause-box{padding:28px 20px!important;width:calc(100vw - 40px)!important;box-sizing:border-box}
+  #pause-box .pbtn{width:100%!important}
+  #pause-box input[type=range]{width:100%!important}
+  .psub{display:none!important}
 }
 #input-bar{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);font-size:1em;color:rgba(255,220,80,0.45);letter-spacing:2px;text-align:center;z-index:5;pointer-events:none;display:none}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
