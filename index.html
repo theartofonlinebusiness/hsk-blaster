@@ -2242,6 +2242,7 @@ function _launchGame(){
 
 function gameOver(){
   gState='gameover';
+  ctx.clearRect(0,0,W,H);
   if(score>hiScore){hiScore=score;localStorage.setItem('hsk_hi',hiScore);}
   // personal best wave
   const newWaveRecord=wave>bestWave;
