@@ -572,7 +572,7 @@ class FallingWord{
   constructor(word){
     this.word=word;
     this.x=80+Math.random()*(W-160);
-    this.y=-20; // spawn close to top so characters appear quickly, not 6s later
+    this.y=-this.fontSize; // spawn just above viewport so first frame they're invisible
     const sizeRoll=Math.random();
     // Smaller range: Desktop 45–88px, Mobile 36–64px — reduces overlap
     const fMin=screenMode==='mobile'?36:45;
