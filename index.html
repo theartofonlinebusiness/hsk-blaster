@@ -96,9 +96,6 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
       <div style="font-size:.78em;letter-spacing:2px;color:#7aaabb;margin-top:6px">GAME EFFECTS VOLUME</div>
       <input type="range" id="sfx-slider" min="0" max="100" value="60"
         style="width:200px;accent-color:#00ffff" oninput="sfxVol=this.value/100">
-      <div style="font-size:.78em;letter-spacing:2px;color:#7aaabb;margin-top:6px">MUSIC VOLUME</div>
-      <input type="range" id="music-slider" min="0" max="100" value="38"
-        style="width:200px;accent-color:#ff00ff" oninput="musicVol=this.value/100;if(_musicGain){try{const a=ac();_musicGain.gain.linearRampToValueAtTime(musicVol*0.32,a.currentTime+0.2);}catch(e){}}">
     </div>
     <!-- Vocabulary inventory: words on screen when paused -->
     <div id="pause-vocab" style="margin:18px 0 0;display:none;text-align:left;max-height:220px;overflow-y:auto">
@@ -1095,77 +1092,14 @@ function toggleAudio(){
   audioMode=!audioMode;
   const btn=document.getElementById('audio-btn');
   if(btn) btn.textContent=(audioMode?'🔊 AUDIO: ON':'🔇 AUDIO: OFF');
-  if(audioMode) resumeMusic(); else pauseMusic();
 }
 
-// ─── AMBIENT MUSIC ────────────────────────────────────────────────────────────
-// Procedural space-ambient soundtrack via Web Audio API.
-// Drone pad (4 detuned sines) + slow arpeggio sparkles in A-minor pentatonic.
-// Completely separate from sfxVol — has its own musicVol slider.
-let musicVol=0.38;
-let _musicGain=null,_musicNodes=[],_musicPlaying=false,_musicArpTimer=null;
-const _ARP=[220,261.6,329.6,392,440,523.3,659.3]; // A minor + neighbours
-
-function startMusic(){
-  if(!audioMode) return;
-  // Stop any existing music immediately before starting fresh (handles fast retry)
-  if(_musicPlaying) stopMusic();
-  // Small delay to let any in-flight fade settle
-  setTimeout(_doStartMusic, 50);
-}
-function _doStartMusic(){
-  if(_musicPlaying) return;
-  try{
-    const a=ac();
-    if(a.state==='suspended') a.resume();
-    _musicGain=a.createGain();
-    _musicGain.gain.setValueAtTime(musicVol*0.4,a.currentTime);
-    _musicGain.connect(a.destination);
-    _musicPlaying=true;
-    _scheduleArp();
-  }catch(e){}
-}
-
-function _scheduleArp(){
-  if(!_musicPlaying) return;
-  try{
-    const a=ac();
-    const freq=_ARP[Math.floor(Math.random()*_ARP.length)];
-    const o=a.createOscillator(),g=a.createGain();
-    o.type='sine';o.frequency.value=freq;
-    g.gain.setValueAtTime(0,a.currentTime);
-    g.gain.linearRampToValueAtTime(musicVol*0.055,a.currentTime+0.12);
-    g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+1.6);
-    o.connect(g);g.connect(a.destination);
-    o.start();o.stop(a.currentTime+1.7);
-  }catch(e){}
-  _musicArpTimer=setTimeout(_scheduleArp,2200+Math.random()*3800);
-}
-
-function stopMusic(){
-  _musicPlaying=false;
-  if(_musicArpTimer){clearTimeout(_musicArpTimer);_musicArpTimer=null;}
-  try{
-    if(_musicGain){
-      const a=ac();
-      _musicGain.gain.linearRampToValueAtTime(0,a.currentTime+1.2);
-    }
-    setTimeout(()=>{
-      _musicNodes.forEach(n=>{try{n.stop?n.stop(0):n.disconnect();}catch(e){}});
-      _musicNodes=[];_musicGain=null;
-    },1300);
-  }catch(e){_musicNodes=[];_musicGain=null;}
-}
-
-function pauseMusic(){
-  if(!_musicGain) return;
-  try{const a=ac();_musicGain.gain.linearRampToValueAtTime(0,a.currentTime+0.4);}catch(e){}
-}
-
-function resumeMusic(){
-  if(!_musicGain||!_musicPlaying) return;
-  try{const a=ac();_musicGain.gain.linearRampToValueAtTime(musicVol*0.32,a.currentTime+0.5);}catch(e){}
-}
+// Music: reserved for real audio files from the sound library.
+// Web Audio synthesis was removed — it sounded bad.
+function startMusic(){}
+function stopMusic(){}
+function pauseMusic(){}
+function resumeMusic(){}
 function sfxLaunch(){
   // bass punch → rising shimmer — hits hard then brightens
   try{
