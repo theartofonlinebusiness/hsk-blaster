@@ -1917,8 +1917,10 @@ function loop(ts){
     if(!fw.dying&&fw.reachedBottom()){
       fw.dying=true;loseLife(fw);
       if(fw===target){target=null;typed='';sylBuf='';}
+      if(gState!=='playing'){ctx.clearRect(0,0,W,H);return;}
     }
   }
+  if(gState!=='playing'){ctx.clearRect(0,0,W,H);return;}
 
   // mode3 dim — when character selection box is visible, dim everything else
   if(mode3DimActive&&document.getElementById('mode3-panel').style.display!=='none'){
