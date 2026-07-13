@@ -1139,7 +1139,7 @@ function fireMicroBullet(tx,ty){
     x:ship.x,y:ship.y-22,
     tx,ty,micro:true,progress:0,
     startX:ship.x,startY:ship.y-22,
-    speed:0.016 // faster so impact is immediate
+    speed:0.007 // 140ms travel — visible on both 30fps mobile and 60fps desktop
   });
 }
 
@@ -1296,9 +1296,10 @@ setTimeout(_loadVoice,500); // fallback init
 function speakChar(ch){
   if(!audioMode||!window.speechSynthesis) return;
   try{
-    // Only cancel after the iOS TTS unlock utterance has finished playing.
-    // Cancelling too early removes the unlock utterance and TTS stays silent.
-    if(window._ttsUnlocked===true) window.speechSynthesis.cancel();
+    // speakChar is always called from within a touchstart handler (gesture context).
+    // iOS allows speak() from a gesture — cancel any backlog so fast typing
+    // only speaks the most recent character, not a queue of stale ones.
+    window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(ch);
     u.lang='zh-CN';
     u.rate=0.62;
@@ -2173,16 +2174,18 @@ function loop(ts){
 
     if(f.golden&&f.tip){
       // cultural reveal — full "native speaker secret" treatment
+      // clamp x so text always stays within the play area on narrow mobile screens
+      const tipX=PLAY_X+PLAY_W/2;
       ctx.font=`bold 28px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
       ctx.shadowBlur=18;ctx.shadowColor='rgba(255,200,0,0.8)';ctx.fillStyle='#ffdd44';
-      ctx.fillText(f.c,f.x,f.y);
+      ctx.fillText(f.c,tipX,f.y);
       ctx.font=`15px 'Noto Sans SC',sans-serif`;
       ctx.fillStyle='rgba(255,210,80,0.85)';ctx.shadowBlur=6;
-      ctx.fillText(f.p,f.x,f.y+24);
+      ctx.fillText(f.p,tipX,f.y+24);
       // tip — wrap into lines
       ctx.font=`13px 'Noto Sans SC',sans-serif`;
       ctx.shadowBlur=0;
-      const maxTW=Math.min(W-100,300);
+      const maxTW=Math.min(PLAY_W-30,300);
       const tw=f.tip.split(' ');
       let tl='',tlines=[];
       for(const w of tw){
@@ -2193,7 +2196,7 @@ function loop(ts){
       if(tl.trim()) tlines.push(tl.trim());
       tlines.slice(0,3).forEach((l,li)=>{
         ctx.fillStyle=`rgba(255,${200-li*20},${60+li*10},${0.9-li*0.1})`;
-        ctx.fillText(l,f.x,f.y+42+li*17);
+        ctx.fillText(l,tipX,f.y+42+li*17);
       });
     } else {
       const col=f.missed?'#ff4455':'#ffffff';
@@ -2599,16 +2602,7 @@ if(isTouchDevice){
   // across the gaps between keys. No dead zones.
   let _pressedBtn=null;
   function _audioUnlock(){
-    _unlockAudioCtx();
-    if(!window._ttsUnlocked){
-      window._ttsUnlocked='pending';
-      try{
-        const u=new SpeechSynthesisUtterance('一');
-        u.volume=0.01;u.lang='zh-CN';
-        u.onend=u.onerror=()=>{window._ttsUnlocked=true;};
-        window.speechSynthesis.speak(u);
-      }catch(_){window._ttsUnlocked=true;}
-    }
+    _unlockAudioCtx(); // Web Audio unlock — speakChar handles TTS directly in gesture
   }
   ckb.addEventListener('touchstart',e=>{
     e.preventDefault();
