@@ -870,11 +870,11 @@ class FallingWord{
           const maxR=Math.max(W,H)*0.72;
           const minR=Math.max(totalW/2+fw*0.5,fh/2)+8;
           const r=maxR+(minR-maxR)*prog;
-          const alpha=(1-prog*prog)*0.38; // quadratic fade — bright start, quick fade
+          const alpha=(1-prog*prog)*0.72; // quadratic fade — bright start, quick fade
           ctx.save();
           ctx.strokeStyle=`rgba(0,255,200,${alpha})`;
-          ctx.lineWidth=1.2;
-          ctx.shadowBlur=0;
+          ctx.lineWidth=2.5;
+          ctx.shadowBlur=8;ctx.shadowColor=`rgba(0,255,180,${alpha*0.6})`;
           ctx.beginPath();ctx.arc(this.x,this.y,Math.max(1,r),0,Math.PI*2);ctx.stroke();
           ctx.restore();
         }
@@ -946,14 +946,23 @@ class FallingWord{
             ctx.fillStyle='rgba(0,255,140,0.85)';
             ctx.fillText(tSyl,cx,yBelow);
           } else if(this.targeted&&i===this.completedSyls){
-            // Show typed progress (sylBuf growing) or hint tSyl for beginner levels
-            const dispBuf=sylBuf||(( showPinyin||isBeginnerLevel())?tSyl:'');
-            if(dispBuf){
-              ctx.font=pyFont;
+            // Always show full toned syllable — gives player context of what to type.
+            // Yellow when actively typing, dim-blue if waiting for first keystroke.
+            ctx.font=pyFont;
+            if(sylBuf){
               ctx.shadowBlur=14;ctx.shadowColor='#ffdd00';
               ctx.fillStyle='#ffee44';
-              ctx.fillText(dispBuf,cx,yBelow);
+            } else {
+              ctx.shadowBlur=6;ctx.shadowColor='rgba(120,190,255,0.4)';
+              ctx.fillStyle='rgba(160,210,255,0.75)';
             }
+            ctx.fillText(tSyl,cx,yBelow);
+          } else if(this.targeted&&i>this.completedSyls){
+            // Ghost pinyin for remaining syllables — player can see full word ahead
+            ctx.font=pyFont;
+            ctx.shadowBlur=2;ctx.shadowColor='rgba(100,160,255,0.1)';
+            ctx.fillStyle='rgba(130,175,255,0.38)';
+            ctx.fillText(tSyl,cx,yBelow);
           } else if(showPinyin||isBeginnerLevel()){
             // Pinyin always visible for beginners; optional for higher levels
             ctx.font=pyFont;
@@ -1224,7 +1233,7 @@ window.speechSynthesis&&window.speechSynthesis.addEventListener&&
 setTimeout(_loadVoice,500); // fallback init
 
 function speakChar(ch){
-  if(!audioMode||!window.speechSynthesis) return;
+  if(!audioMode||!window.speechSynthesis||!window._ttsUnlocked) return;
   try{
     // Always cancel current speech and play the newest character.
     // Fast typing = you hear the last char completed. Slow = you hear each one.
@@ -2350,13 +2359,13 @@ function _launchGame(){
   missedWords=[];waveWords=[];currentWaveTip='';launchFlash=1.0;wordsCommandedSet=new Set();
   waveState='fighting';waveTimer=0;
   startMusic();
-  wordsPerWave=6;wordsSpawnedThisWave=0;maxSimultaneous=2; // only 2 on screen in wave 1
+  wordsPerWave=6;wordsSpawnedThisWave=0;maxSimultaneous=1; // wave 1: single word at a time
 
   buildPool();
+  if(screenMode==='mobile') ckbShow(); // must precede ship.init() so H is correct
   ship.init();
   updateHUD();updateLivesHUD();updateInputBar();
 
-  if(screenMode==='mobile') ckbShow();
   lastTime=performance.now();
   requestAnimationFrame(loop);
 }
