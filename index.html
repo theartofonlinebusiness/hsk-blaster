@@ -88,14 +88,23 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
 #pause-box h2{color:#00ffff;font-size:1.6em;text-shadow:0 0 20px #00ffff;margin-bottom:8px}
 #pause-box .psub{color:#334455;font-size:.65em;letter-spacing:3px;margin-bottom:32px}
 #pause-box .pbtn{display:block;width:200px;margin:10px auto;padding:12px;font-size:.8em}
+/* ── CUSTOM ON-SCREEN KEYBOARD ── */
+#ckb{position:fixed;bottom:0;left:0;width:100%;background:rgba(3,6,22,0.97);border-top:1px solid rgba(0,255,255,0.12);z-index:6;padding:5px 4px max(8px,env(safe-area-inset-bottom)) 4px;display:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.ckb-row{display:flex;justify-content:center;gap:3px;margin-bottom:3px}
+.ck{background:rgba(255,255,255,0.07);border:1px solid rgba(0,200,255,0.18);color:#90ccdd;font-family:'Orbitron',monospace;font-size:0.88em;font-weight:700;border-radius:5px;cursor:pointer;height:42px;flex:1;max-width:37px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;letter-spacing:0;line-height:1;outline:none}
+.ck.pressed{background:rgba(0,255,220,0.18);border-color:rgba(0,255,220,0.55);color:#00ffcc;box-shadow:0 0 8px rgba(0,255,200,0.3)}
+.ck-bksp{max-width:50px;font-size:1.1em}
+.ck-space{max-width:none;flex:5;font-size:0.65em;letter-spacing:2px;color:#668899}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<!-- hidden input captures mobile keyboard -->
+<!-- hidden input: kept for reference but never focused on touch devices -->
 <input id="mobile-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-  style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:50%;left:50%;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent"
-  inputmode="latin">
+  style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-200px;left:-200px;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent"
+  inputmode="none">
+<!-- custom on-screen keyboard (mobile only) -->
+<div id="ckb"></div>
 
 <div id="hud" style="display:none;flex-direction:row">
   <div class="hi"><div class="hl">SCORE</div><div class="hv" id="hv-score">0</div></div>
@@ -494,14 +503,17 @@ let screenMode=window.innerWidth<600?'mobile':'desktop';
 let PLAY_W=screenMode==='mobile'?390:860;
 let PLAY_X=0;
 
+const CKB_H=210; // custom keyboard height in px (matches CSS)
+let ckbVisible=false;
+
 function resize(){
-  // Use visualViewport when available — critical for mobile: gives actual visible area
-  // above the keyboard. window.innerHeight stays full even when keyboard is open on iOS.
   const vv=window.visualViewport;
   W=Math.round(vv?vv.width:window.innerWidth);
-  H=Math.round(vv?vv.height:window.innerHeight);
+  // On mobile with custom keyboard, subtract keyboard height so game canvas
+  // never goes under the keyboard
+  const ckbOffset=(screenMode==='mobile'&&ckbVisible)?CKB_H:0;
+  H=Math.round((vv?vv.height:window.innerHeight)-ckbOffset);
   canvas.width=W; canvas.height=H;
-  // Sync canvas CSS size so it doesn't stretch to fill the full window
   canvas.style.width=W+'px'; canvas.style.height=H+'px';
   // On iOS the viewport can be offset when keyboard pushes content
   canvas.style.top=(vv?vv.offsetTop:0)+'px';
@@ -827,36 +839,26 @@ class FallingWord{
         ctx.restore();
       }
 
-      // ZType-style targeting hexagon — appears when player starts typing this word
-      if(this.targeted&&!this.dying&&!this.isGolden&&!this.isMother){
-        const prog=Math.min(1,this.completedSyls/Math.max(1,this.syllables.length));
-        const t=Date.now()*0.0025;
-        // hexagon contracts as typing progresses: starts wide, tightens to word
-        const hexPad=Math.max(8,32-prog*26);
-        const hexW=totalW/2+fw*0.5+hexPad;
-        const hexH=fh*0.5+hexPad*0.6;
-        const pulse=0.55+0.35*Math.sin(t);
-        ctx.save();
-        ctx.strokeStyle=`rgba(0,255,200,${0.45+0.35*pulse})`;
-        ctx.shadowBlur=14;ctx.shadowColor='rgba(0,255,180,0.9)';
-        ctx.lineWidth=1.8;
-        ctx.beginPath();
-        for(let k=0;k<6;k++){
-          const ang=(Math.PI/3)*k-Math.PI/6;
-          const hx=this.x+hexW*Math.cos(ang);
-          const hy=this.y+hexH*Math.sin(ang);
-          k===0?ctx.moveTo(hx,hy):ctx.lineTo(hx,hy);
+      // Lock-on circle sweep — fires once when word is first targeted,
+      // starts large (off-screen), contracts to word, fades as it closes in
+      if(!this.targeted){ this._targetStart=null; }
+      else if(!this._targetStart){ this._targetStart=Date.now(); }
+      if(this.targeted&&this._targetStart&&!this.dying){
+        const elapsed=Date.now()-this._targetStart;
+        const dur=420;
+        if(elapsed<dur){
+          const prog=elapsed/dur;
+          const maxR=Math.max(W,H)*0.72;
+          const minR=Math.max(totalW/2+fw*0.5,fh/2)+8;
+          const r=maxR+(minR-maxR)*prog;
+          const alpha=(1-prog*prog)*0.38; // quadratic fade — bright start, quick fade
+          ctx.save();
+          ctx.strokeStyle=`rgba(0,255,200,${alpha})`;
+          ctx.lineWidth=1.2;
+          ctx.shadowBlur=0;
+          ctx.beginPath();ctx.arc(this.x,this.y,Math.max(1,r),0,Math.PI*2);ctx.stroke();
+          ctx.restore();
         }
-        ctx.closePath();ctx.stroke();
-        // corner tick marks at vertices
-        ctx.lineWidth=2.5;ctx.shadowBlur=8;
-        for(let k=0;k<6;k++){
-          const ang=(Math.PI/3)*k-Math.PI/6;
-          const hx=this.x+hexW*Math.cos(ang);
-          const hy=this.y+hexH*Math.sin(ang);
-          ctx.beginPath();ctx.arc(hx,hy,2.5,0,Math.PI*2);ctx.fillStyle='rgba(0,255,200,0.9)';ctx.fill();
-        }
-        ctx.restore();
       }
 
       for(let i=0;i<n;i++){
@@ -1201,8 +1203,8 @@ function speakChar(ch){
     window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(ch);
     u.lang='zh-CN';
-    u.rate=0.72; // slightly slower so tones are clearly audible
-    u.pitch=1.0;
+    u.rate=0.62; // slower for learners to hear tones clearly
+    u.pitch=1.08; // slight lift — more pitch range, less robotic
     u.volume=ttsVol;
     if(_ttsVoice) u.voice=_ttsVoice;
     window.speechSynthesis.speak(u);
@@ -1862,15 +1864,15 @@ function togglePause(){
     if(m3Pending){m3Pending=null;}
     buildPauseVocab(); // populate vocabulary inventory
     pauseMusic();
+    ckbHide();
     document.getElementById('pause-overlay').style.display='flex';
     document.getElementById('pause-btn').textContent='▶ RESUME';
-    // Dismiss keyboard so pause menu is fully visible
-    if(document.getElementById('mobile-input')) document.getElementById('mobile-input').blur();
   } else if(gState==='paused'){
     gState='playing';
     document.getElementById('pause-overlay').style.display='none';
     document.getElementById('pause-btn').textContent='⏸ PAUSE';
     resumeMusic();
+    if(screenMode==='mobile') ckbShow();
     lastTime=performance.now();
     requestAnimationFrame(loop);
   }
@@ -1878,6 +1880,7 @@ function togglePause(){
 
 function quitToMenu(){
   stopMusic();
+  ckbHide();
   gState='menu';
   document.getElementById('pause-overlay').style.display='none';
   document.getElementById('pause-btn').style.display='none';
@@ -2271,16 +2274,11 @@ function drawBG(){
 function startGame(){
   const overlay=document.getElementById('overlay');
   sfxLaunch();
-  // Focus mobile keyboard NOW while we're still inside the user gesture (button tap)
-  // iOS only allows focus() from a direct user interaction — setTimeout breaks it
-  if('ontouchstart' in window) mobileInput.focus();
   overlay.classList.add('exiting');
   setTimeout(()=>{
     overlay.classList.remove('exiting');
     overlay.style.display='none';
     _launchGame();
-    // Re-focus after overlay closes in case iOS dismissed it
-    if('ontouchstart' in window) setTimeout(()=>mobileInput.focus(),100);
   },480);
 }
 
@@ -2317,12 +2315,14 @@ function _launchGame(){
   ship.init();
   updateHUD();updateLivesHUD();updateInputBar();
 
+  if(screenMode==='mobile') ckbShow();
   lastTime=performance.now();
   requestAnimationFrame(loop);
 }
 
 function gameOver(){
   gState='gameover';
+  ckbHide();
   ctx.clearRect(0,0,W,H);
   if(score>hiScore){hiScore=score;localStorage.setItem('hsk_hi',hiScore);}
   // personal best wave
@@ -2430,28 +2430,68 @@ if(isTouchDevice){
   const hr=document.getElementById('hints-row');
   if(hr){hr.style.pointerEvents='all';hr.style.cursor='pointer';hr.addEventListener('touchstart',e=>{e.preventDefault();if(gState==='playing')useHint();},{passive:false});}
 }
-// Tap anywhere on canvas during play to re-focus the hidden input (shows phone keyboard)
-document.getElementById('c').addEventListener('touchstart',()=>{
-  if(gState==='playing') mobileInput.focus();
-},{passive:true});
-// sync mobile input events into the same handleKey pathway
-mobileInput.addEventListener('keydown',e=>{
-  if(gState==='playing'||gState==='paused'){
-    handleKey(e);
-    if(gState==='playing') e.preventDefault();
-  }
-});
-// also handle compositionend for IME (some Android keyboards)
-mobileInput.addEventListener('input',()=>{
-  const val=mobileInput.value.replace(/[^a-zA-Z]/g,'').toLowerCase();
-  mobileInput.value='';
-  if(val&&gState==='playing'){
-    for(const ch of val){
-      typed+=ch; sfxType(); matchTarget();
-    }
-    updateInputBar();
-  }
-});
+// ─── CUSTOM ON-SCREEN KEYBOARD ──────────────────────────────────────────────
+(function initCustomKeyboard(){
+  const ckb=document.getElementById('ckb');
+  const ROWS=[
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['z','x','c','v','b','n','m','⌫'],
+    [' ']
+  ];
+  ROWS.forEach(row=>{
+    const rowEl=document.createElement('div');
+    rowEl.className='ckb-row';
+    row.forEach(key=>{
+      const btn=document.createElement('button');
+      btn.className='ck';
+      if(key===' '){btn.className+=' ck-space';btn.textContent='SPACE';}
+      else if(key==='⌫'){btn.className+=' ck-bksp';btn.textContent='⌫';}
+      else{btn.textContent=key.toUpperCase();}
+      btn.dataset.key=key;
+      const fire=()=>{
+        const k=key==='⌫'?'Backspace':key;
+        handleKey(new KeyboardEvent('keydown',{key:k,bubbles:true}));
+      };
+      btn.addEventListener('touchstart',e=>{
+        e.preventDefault();
+        btn.classList.add('pressed');
+        fire();
+      },{passive:false});
+      btn.addEventListener('touchend',e=>{
+        e.preventDefault();
+        btn.classList.remove('pressed');
+      },{passive:false});
+      // desktop fallback
+      btn.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        btn.classList.add('pressed');
+        fire();
+      });
+      btn.addEventListener('mouseup',()=>btn.classList.remove('pressed'));
+      rowEl.appendChild(btn);
+    });
+    ckb.appendChild(rowEl);
+  });
+})();
+
+function ckbShow(){
+  const ckb=document.getElementById('ckb');
+  if(!ckb||ckbVisible) return;
+  ckb.style.display='block';
+  ckbVisible=true;
+  resize();
+}
+function ckbHide(){
+  const ckb=document.getElementById('ckb');
+  if(!ckb||!ckbVisible) return;
+  ckb.style.display='none';
+  ckbVisible=false;
+  resize();
+}
+
+// Desktop keyboard — document listener (unchanged)
+// Mobile keyboard — custom on-screen buttons above; never focus mobileInput on touch devices
 
 // ─── SPOTLIGHT TUTORIAL ENGINE ─────────────────────────────────────────────
 const TOUR_STEPS=[
