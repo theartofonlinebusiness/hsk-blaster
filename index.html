@@ -614,17 +614,21 @@ class FallingWord{
     // Smaller range: Desktop 45–88px, Mobile 36–64px — reduces overlap
     const fMin=screenMode==='mobile'?36:45;
     const fRange=screenMode==='mobile'?28:43;
-    let fs=selMode===3?(screenMode==='mobile'?16:20):Math.round(fMin+sizeRoll*fRange);
+    let fs=selMode===3?(screenMode==='mobile'?26:32):Math.round(fMin+sizeRoll*fRange);
     // Cap font so word never wider than play area (long words get smaller text)
-    const maxFsByWidth=Math.floor((PLAY_W-20)/Math.max(1,word.c.length)*0.85);
+    // Mode 3: cap by English text length estimate (avg 8px per char at 26px font)
+    const capLen=selMode===3?Math.max(1,word.e.length):Math.max(1,word.c.length);
+    const maxFsByWidth=Math.floor((PLAY_W-20)/capLen*(selMode===3?1.6:0.85));
     this.fontSize=Math.min(fs,maxFsByWidth);
+    this.hintSize=Math.max(10,Math.round(this.fontSize*0.38));
     this.y=-this.fontSize; // spawn just above viewport, after fontSize is known
     // Speed: fast enough to feel energetic, variance from size
     const sizeSpeedFactor=1.3-sizeRoll*0.5;
     const tierRoll=Math.random();
     // Compressed range: slow 0.80×, normal 1.0×, fast 1.22× (was 0.65/1.0/1.5 — too wide)
     const tier=tierRoll<0.3?0.80:tierRoll<0.8?1.0:1.22;
-    this.baseSpeed=(0.72+Math.random()*0.28)*speedMult*sizeSpeedFactor*tier;
+    const m3Factor=selMode===3?0.48:1;
+    this.baseSpeed=(0.72+Math.random()*0.28)*speedMult*sizeSpeedFactor*tier*m3Factor;
     this.speed=this.baseSpeed;
     this.opacity=1;
     this.targeted=false;
@@ -1676,7 +1680,9 @@ function openM3Panel(fw){
   m3Pending=fw;
   const correct=fw.word;
   // pick 3 distractors from pool
-  const distractors=pool.filter(w=>w!==correct&&w.c!==correct.c).slice(0,20);
+  const distPool=pool.filter(w=>w!==correct&&w.c!==correct.c);
+  for(let i=distPool.length-1;i>0;i--){const j=0|Math.random()*(i+1);[distPool[i],distPool[j]]=[distPool[j],distPool[i]];}
+  const distractors=distPool.slice(0,20);
   const picks=[];
   const usedIdx=new Set();
   while(picks.length<3&&picks.length<distractors.length){
@@ -1722,7 +1728,8 @@ function selectM3Option(idx){
       optEls[idx].classList.add('wrong');
       setTimeout(()=>optEls[idx].classList.remove('wrong'),400);
     }
-    // lose half a life? or just flash. Let's just flash for now.
+    streak=0;document.getElementById('hv-streak').textContent=0;
+    shakeInputBar();sfxWrong();
     showFlash('WRONG!');
   }
 }
