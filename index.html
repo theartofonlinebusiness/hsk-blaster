@@ -236,8 +236,8 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
     <div id="go-hs" style="color:#ff00ff;font-size:.8em;margin-bottom:18px"></div>
     <div id="go-newbest" style="display:none;color:#ffdd00;font-size:.85em;letter-spacing:2px;margin:4px 0 10px;text-shadow:0 0 12px #ffaa00"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;text-align:center">
-      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">WAVE REACHED</div><div id="go-wave" style="color:#00ffff;font-size:1.4em;margin-top:4px">1</div></div>
-      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST WAVE</div><div id="go-bestwv" style="color:#aaddff;font-size:1.4em;margin-top:4px">1</div></div>
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">WAVE REACHED</div><div id="go-wave" style="color:#00ffff;font-size:1.05em;margin-top:4px;line-height:1.3">1</div></div>
+      <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST WAVE</div><div id="go-bestwv" style="color:#aaddff;font-size:1.05em;margin-top:4px;line-height:1.3">1</div></div>
       <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">ACCURACY</div><div id="go-acc" style="color:#00ff88;font-size:1.4em;margin-top:4px">--%</div></div>
       <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST STREAK</div><div id="go-streak" style="color:#ff88ff;font-size:1.4em;margin-top:4px">0</div></div>
     </div>
@@ -629,7 +629,12 @@ class FallingWord{
     this.dyingTimer=0;
     this.completedSyls=0;
     this.damageFlash=0;
-    this.vx=0; // horizontal velocity for fanning children
+    // Slight horizontal drift — natural-looking angle, breaks up straight-down monotony.
+    // vx decays each frame (×0.992) so total drift ≈ ±40px over full screen height.
+    // Bias toward center so words near edges drift inward and stay on screen.
+    const playCX=PLAY_X+PLAY_W/2;
+    const edgeBias=this.x>playCX?-1:1;
+    this.vx=edgeBias*(0.15+Math.random()*0.25); // 0.15–0.40 px/frame toward center
     this.spawnTime=Date.now();     // for hesitation tracking (SRS signal)
     this.firstKeyTime=null;        // set when player first types toward this word
     this.responseStartTime=null;   // set when word is locked as target
@@ -2340,8 +2345,8 @@ function gameOver(){
   if(newWaveRecord){bestWave=wave;localStorage.setItem('hsk_bestwave',bestWave);}
   document.getElementById('go-score').textContent=score+' PTS';
   document.getElementById('go-hs').textContent='BEST SCORE: '+hiScore;
-  document.getElementById('go-wave').textContent=waveName(wave);
-  document.getElementById('go-bestwv').textContent=waveName(bestWave);
+  document.getElementById('go-wave').textContent=waveLabel(wave);
+  document.getElementById('go-bestwv').textContent=waveLabel(bestWave);
   const newBestEl=document.getElementById('go-newbest');
   if(newWaveRecord&&wave>1){newBestEl.style.display='block';newBestEl.textContent='★ NEW RECORD — WAVE '+wave+'!';}
   else newBestEl.style.display='none';
@@ -2405,6 +2410,7 @@ const WAVE_NAMES={
   10:'Master Level',11:'Champion',12:'Legendary'
 };
 function waveName(n){ return WAVE_NAMES[n]||'Wave '+n; }
+function waveLabel(n){ return `Wave ${n}${WAVE_NAMES[n]?' · '+WAVE_NAMES[n]:''}`; }
 
 // ─── MENU CONTROLS ─────────────────────────────────────────────────────────
 function setMode(n){
