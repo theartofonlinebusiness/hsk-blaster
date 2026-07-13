@@ -1221,6 +1221,19 @@ function ac(){
   if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)();
   return _ac;
 }
+// Unlock Web Audio on iOS: must play a real buffer (not just resume()) to activate context
+function _unlockAudioCtx(){
+  try{
+    const a=ac();
+    const _playBuf=()=>{
+      const buf=a.createBuffer(1,1,a.sampleRate);
+      const src=a.createBufferSource();
+      src.buffer=buf;src.connect(a.destination);src.start(0);
+    };
+    if(a.state!=='running') a.resume().then(_playBuf);
+    else _playBuf();
+  }catch(_){}
+}
 function tone(freq,dur,vol,type='square',slide=0){
   try{
     const a=ac();
@@ -1233,7 +1246,7 @@ function tone(freq,dur,vol,type='square',slide=0){
       g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
       o.start();o.stop(a.currentTime+dur);
     };
-    if(a.state==='suspended') a.resume().then(_play);
+    if(a.state!=='running') a.resume().then(_play);
     else _play();
   }catch(e){}
 }
@@ -1309,7 +1322,7 @@ function sfxCountdownBeep(n){
       g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+(n===1?0.22:0.14));
       o.start();o.stop(a.currentTime+0.25);
     };
-    if(a.state==='suspended') a.resume().then(_play);
+    if(a.state!=='running') a.resume().then(_play);
     else _play();
   }catch(e){}
 }
@@ -1339,7 +1352,8 @@ function sfxLaunch(){
       g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+0.18);
       o.start();o.stop(a.currentTime+0.25);
     };
-    punch();
+    if(a.state!=='running') a.resume().then(punch);
+    else punch();
     setTimeout(()=>{ tone(220,0.1,0.4,'sawtooth',200); },80);
     setTimeout(()=>{ tone(440,0.08,0.3,'square',300); tone(880,0.06,0.2,'square',0); },200);
     setTimeout(()=>{ tone(1047,0.12,0.35,'square',200); },320);
@@ -2388,6 +2402,7 @@ function drawBG(){
 
 // ─── GAME FLOW ─────────────────────────────────────────────────────────────
 function startGame(){
+  _unlockAudioCtx(); // must be first — creates & unlocks AudioContext inside gesture
   const overlay=document.getElementById('overlay');
   sfxLaunch();
   overlay.classList.add('exiting');
@@ -2584,11 +2599,11 @@ if(isTouchDevice){
   // across the gaps between keys. No dead zones.
   let _pressedBtn=null;
   function _audioUnlock(){
-    try{ ac().resume(); }catch(_){}
+    _unlockAudioCtx();
     if(!window._ttsUnlocked){
       window._ttsUnlocked='pending';
       try{
-        const u=new SpeechSynthesisUtterance('​');
+        const u=new SpeechSynthesisUtterance('一');
         u.volume=0.01;u.lang='zh-CN';
         u.onend=u.onerror=()=>{window._ttsUnlocked=true;};
         window.speechSynthesis.speak(u);
