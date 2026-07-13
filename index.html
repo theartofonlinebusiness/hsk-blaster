@@ -728,27 +728,47 @@ class FallingWord{
     ctx.textAlign='center';
 
     if(this.isEnglish){
-      // Mode 3 — dynamically fit English text within PLAY_W so it never protrudes
+      // Mode 3 — draw English text, wrapping to 2 lines if too wide
       const isT=this.targeted;
       ctx.shadowBlur=isT?14:5;
       ctx.shadowColor=isT?'rgba(200,220,255,0.7)':'rgba(100,150,255,0.3)';
-      // Find font size that fits text within (PLAY_W - 20px padding)
-      let engSize=this.fontSize;
-      ctx.font=`bold ${engSize}px 'Orbitron',monospace`;
-      while(engSize>10 && ctx.measureText(this.displayText).width > PLAY_W-20){
-        engSize--;
-        ctx.font=`bold ${engSize}px 'Orbitron',monospace`;
-      }
       ctx.fillStyle=isT?'#ffffff':'rgba(180,210,255,0.55)';
-      // Clamp x so centered text never exceeds play area
-      const txtW=ctx.measureText(this.displayText).width;
-      const clampedX=Math.max(PLAY_X+txtW/2+8, Math.min(PLAY_X+PLAY_W-txtW/2-8, this.x));
-      ctx.fillText(this.displayText,clampedX,this.y);
+      const engSize=this.fontSize;
+      const lineH=engSize*1.25;
+      ctx.font=`bold ${engSize}px 'Orbitron',monospace`;
+      const cx=PLAY_X+PLAY_W/2;
+      const maxW=PLAY_W-24;
+
+      // Split into two lines if text is wider than available width
+      const words=this.displayText.split(' ');
+      let line1=this.displayText, line2='', wrapped=false;
+      if(words.length>1 && ctx.measureText(this.displayText).width>maxW){
+        // Find split point that balances line widths
+        let bestSplit=1, bestDiff=Infinity;
+        for(let s=1;s<words.length;s++){
+          const w1=ctx.measureText(words.slice(0,s).join(' ')).width;
+          const w2=ctx.measureText(words.slice(s).join(' ')).width;
+          const diff=Math.abs(w1-w2);
+          if(diff<bestDiff){bestDiff=diff;bestSplit=s;}
+        }
+        line1=words.slice(0,bestSplit).join(' ');
+        line2=words.slice(bestSplit).join(' ');
+        wrapped=true;
+      }
+
+      if(wrapped){
+        ctx.fillText(line1,cx,this.y-lineH*0.5);
+        ctx.fillText(line2,cx,this.y+lineH*0.5);
+      } else {
+        ctx.fillText(line1,cx,this.y);
+      }
+      const belowY=this.y+(wrapped?lineH*0.5+engSize*0.65:engSize*0.65);
+
       if(!this.dying&&showPinyin){
         ctx.font=`${this.hintSize}px 'Orbitron',monospace`;
         ctx.fillStyle='rgba(100,180,255,0.5)';
         ctx.shadowBlur=3;
-        ctx.fillText(this.hint,this.x,this.y+this.fontSize*0.75);
+        ctx.fillText(this.hint,cx,belowY);
       }
       // typed pinyin under English word
       if(isT&&!this.dying){
@@ -757,7 +777,7 @@ class FallingWord{
           ctx.font=`bold ${Math.max(12,this.fontSize*0.55)}px 'Orbitron',monospace`;
           ctx.shadowBlur=10;ctx.shadowColor='#ffdd00';
           ctx.fillStyle='#ffdd00';
-          ctx.fillText(disp,this.x,this.y+this.fontSize*0.75+(this.hintSize+6));
+          ctx.fillText(disp,cx,belowY+(showPinyin?this.hintSize+4:0));
         }
       }
     } else {
