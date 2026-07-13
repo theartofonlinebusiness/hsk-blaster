@@ -131,7 +131,7 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
       <div style="color:#ff88ff;font-size:1.1em;font-weight:700;text-shadow:0 0 8px #ff00ff" id="mob-streak">0</div>
     </div>
   </div>
-  <button onclick="togglePause()" style="background:rgba(0,255,255,.08);border:1px solid rgba(0,255,255,.3);color:#00ffff;font-family:Orbitron,monospace;font-size:.9em;padding:5px 10px;cursor:pointer;letter-spacing:1px">⏸</button>
+  <button onclick="togglePause()" style="background:rgba(0,255,255,.08);border:1px solid rgba(0,255,255,.3);color:#00ffff;font-family:Orbitron,monospace;font-size:.9em;padding:5px 10px;cursor:pointer;letter-spacing:1px">II</button>
 </div>
 
 <div id="hints-row" style="display:none;position:fixed;top:52px;right:24px;z-index:5;font-family:Orbitron,monospace;font-size:.88em;color:#ffcc00;letter-spacing:1px;pointer-events:none;background:rgba(5,10,20,.55);padding:4px 10px;border:1px solid rgba(255,200,0,.2)">
@@ -140,14 +140,14 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
 </div>
 <div id="input-bar" style="display:none"><span id="input-text"></span></div>
 <div id="wave-notice"></div>
-<button id="pause-btn" onclick="togglePause()">⏸ PAUSE</button>
+<button id="pause-btn" onclick="togglePause()">II PAUSE</button>
 <button id="pinyin-btn" onclick="togglePinyin()">PINYIN: OFF</button>
 
 <div id="pause-overlay" style="display:none">
   <div id="pause-box">
     <h2>PAUSED</h2>
     <div class="psub">ESC TO RESUME</div>
-    <button class="pbtn go-btn" onclick="togglePause()">▶ RESUME</button>
+    <button class="pbtn go-btn" onclick="togglePause()">RESUME</button>
     <button class="pbtn" style="border-color:#ff00ff;color:#ff00ff" onclick="togglePinyin();updatePinyinBtn()">PINYIN: <span id="pause-py-label">OFF</span></button>
     <button class="pbtn" id="audio-btn" style="border-color:#00ff88;color:#00ff88" onclick="toggleAudio()">🔊 AUDIO: ON</button>
     <div style="margin:14px 0 4px;display:flex;flex-direction:column;gap:10px;text-align:left">
@@ -1866,11 +1866,11 @@ function togglePause(){
     pauseMusic();
     ckbHide();
     document.getElementById('pause-overlay').style.display='flex';
-    document.getElementById('pause-btn').textContent='▶ RESUME';
+    document.getElementById('pause-btn').textContent='RESUME';
   } else if(gState==='paused'){
     gState='playing';
     document.getElementById('pause-overlay').style.display='none';
-    document.getElementById('pause-btn').textContent='⏸ PAUSE';
+    document.getElementById('pause-btn').textContent='II PAUSE';
     resumeMusic();
     if(screenMode==='mobile') ckbShow();
     lastTime=performance.now();
@@ -2291,7 +2291,7 @@ function _launchGame(){
   document.getElementById('input-bar').style.display='block';
   document.getElementById('mode3-panel').style.display='none';
   document.getElementById('pause-btn').style.display='block';
-  document.getElementById('pause-btn').textContent='⏸ PAUSE';
+  document.getElementById('pause-btn').textContent='II PAUSE';
   document.getElementById('pinyin-btn').style.display='block';
   if(screenMode==='mobile') document.getElementById('mob-bar').style.display='flex';
   updatePinyinBtn();
@@ -2455,6 +2455,17 @@ if(isTouchDevice){
       };
       btn.addEventListener('touchstart',e=>{
         e.preventDefault();
+        // Resume AudioContext — iOS suspends it between taps
+        try{ ac().resume(); }catch(_){}
+        // Unlock TTS on first ever touch (iOS requires gesture)
+        if(!window._ttsUnlocked){
+          window._ttsUnlocked=true;
+          try{
+            const u=new SpeechSynthesisUtterance('');
+            u.volume=0;
+            window.speechSynthesis.speak(u);
+          }catch(_){}
+        }
         btn.classList.add('pressed');
         fire();
       },{passive:false});
