@@ -1224,14 +1224,17 @@ function ac(){
 function tone(freq,dur,vol,type='square',slide=0){
   try{
     const a=ac();
-    if(a.state==='suspended') a.resume(); // iOS suspends AudioContext between gestures
-    const o=a.createOscillator(),g=a.createGain();
-    o.connect(g);g.connect(a.destination);
-    o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);
-    if(slide) o.frequency.linearRampToValueAtTime(freq+slide,a.currentTime+dur);
-    g.gain.setValueAtTime(vol*sfxVol,a.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
-    o.start();o.stop(a.currentTime+dur);
+    const _play=()=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.connect(g);g.connect(a.destination);
+      o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);
+      if(slide) o.frequency.linearRampToValueAtTime(freq+slide,a.currentTime+dur);
+      g.gain.setValueAtTime(vol*sfxVol,a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+      o.start();o.stop(a.currentTime+dur);
+    };
+    if(a.state==='suspended') a.resume().then(_play);
+    else _play();
   }catch(e){}
 }
 function sfxType(){
@@ -1257,6 +1260,12 @@ function sfxLoseLife(){
 }
 
 // ─── AUDIO PRONUNCIATION ───────────────────────────────────────────────────
+// Trim CC-CEDICT verbose definitions for display: strip parentheticals, keep before first ; or ,
+function trimDef(e){
+  const s=e.replace(/\s*\([^)]*\)/g,'').trim();
+  return (s.split(/[;,]/)[0].trim()||e.split(/[;,(]/)[0].trim()).trim()||e;
+}
+
 // Speaks the Chinese character/syllable using browser TTS when syllable typed
 let _ttsVoice=null;
 function _loadVoice(){
@@ -1274,13 +1283,13 @@ setTimeout(_loadVoice,500); // fallback init
 function speakChar(ch){
   if(!audioMode||!window.speechSynthesis) return;
   try{
-    // Always cancel current speech and play the newest character.
-    // Fast typing = you hear the last char completed. Slow = you hear each one.
-    window.speechSynthesis.cancel();
+    // Only cancel after the iOS TTS unlock utterance has finished playing.
+    // Cancelling too early removes the unlock utterance and TTS stays silent.
+    if(window._ttsUnlocked===true) window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(ch);
     u.lang='zh-CN';
-    u.rate=0.62; // slower for learners to hear tones clearly
-    u.pitch=1.08; // slight lift — more pitch range, less robotic
+    u.rate=0.62;
+    u.pitch=1.08;
     u.volume=ttsVol;
     if(_ttsVoice) u.voice=_ttsVoice;
     window.speechSynthesis.speak(u);
@@ -1290,13 +1299,18 @@ function speakChar(ch){
 function sfxCountdownBeep(n){
   // countdown beeps always play at full volume — bypass sfxVol
   try{
-    const a=ac(),o=a.createOscillator(),g=a.createGain();
-    o.connect(g);g.connect(a.destination);
-    o.type='square';
-    o.frequency.value=n===1?1047:587;
-    g.gain.setValueAtTime(0.55,a.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+(n===1?0.22:0.14));
-    o.start();o.stop(a.currentTime+0.25);
+    const a=ac();
+    const _play=()=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.connect(g);g.connect(a.destination);
+      o.type='square';
+      o.frequency.value=n===1?1047:587;
+      g.gain.setValueAtTime(0.55,a.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+(n===1?0.22:0.14));
+      o.start();o.stop(a.currentTime+0.25);
+    };
+    if(a.state==='suspended') a.resume().then(_play);
+    else _play();
   }catch(e){}
 }
 
@@ -1917,6 +1931,7 @@ function checkWave(dt){
   // wave clear when all spawned words are gone
   if(wordsSpawnedThisWave>=wordsPerWave&&active.length===0&&waveState==='fighting'){
     waveState='finishing';waveTimer=0;
+    wordFlashes=[]; // clear so definition flashes don't bleed through wave overlay
     if(missesThisWave===0){
       const bonus=wave*200;
       score+=bonus;
@@ -2177,7 +2192,19 @@ function loop(ts){
       ctx.font=`bold 20px 'Noto Sans',Arial,sans-serif`;
       ctx.fillStyle=f.missed?'rgba(255,130,130,0.9)':'rgba(190,220,255,0.88)';
       ctx.shadowBlur=0;ctx.letterSpacing='0.5px';
-      ctx.fillText(f.e,f.x,f.y+54);
+      const _def=trimDef(f.e);
+      const _dfw=ctx.measureText(_def).width;
+      const _dfmax=PLAY_W-30;
+      const _dfx=Math.max(PLAY_X+_dfw/2+8,Math.min(PLAY_X+PLAY_W-_dfw/2-8,f.x));
+      if(_dfw>_dfmax){
+        const _ws=_def.split(' ');let _l1=_def,_l2='',_bi=1,_bd=Infinity;
+        for(let _s=1;_s<_ws.length;_s++){
+          const _a=ctx.measureText(_ws.slice(0,_s).join(' ')).width,_b=ctx.measureText(_ws.slice(_s).join(' ')).width;
+          if(Math.abs(_a-_b)<_bd){_bd=Math.abs(_a-_b);_bi=_s;}
+        }
+        _l1=_ws.slice(0,_bi).join(' ');_l2=_ws.slice(_bi).join(' ');
+        ctx.fillText(_l1,_dfx,f.y+48);ctx.fillText(_l2,_dfx,f.y+66);
+      }else{ctx.fillText(_def,_dfx,f.y+54);}
     }
     ctx.restore();
   }
@@ -2559,12 +2586,13 @@ if(isTouchDevice){
   function _audioUnlock(){
     try{ ac().resume(); }catch(_){}
     if(!window._ttsUnlocked){
-      window._ttsUnlocked=true;
+      window._ttsUnlocked='pending';
       try{
-        const u=new SpeechSynthesisUtterance(' ');
-        u.volume=0;u.lang='zh-CN';
+        const u=new SpeechSynthesisUtterance('​');
+        u.volume=0.01;u.lang='zh-CN';
+        u.onend=u.onerror=()=>{window._ttsUnlocked=true;};
         window.speechSynthesis.speak(u);
-      }catch(_){}
+      }catch(_){window._ttsUnlocked=true;}
     }
   }
   ckb.addEventListener('touchstart',e=>{
@@ -2585,6 +2613,8 @@ if(isTouchDevice){
         if(_pressedBtn&&_pressedBtn!==nearest) _pressedBtn.classList.remove('pressed');
         nearest.classList.add('pressed');
         _pressedBtn=nearest;
+        // Auto-unlight after 150ms so the key flash is brief
+        setTimeout(()=>nearest.classList.remove('pressed'),150);
         const k=nearest.dataset.key==='⌫'?'Backspace':nearest.dataset.key;
         handleKey(new KeyboardEvent('keydown',{key:k,bubbles:true}));
       }
@@ -2592,10 +2622,12 @@ if(isTouchDevice){
   },{passive:false});
   ckb.addEventListener('touchend',e=>{
     e.preventDefault();
-    if(_pressedBtn){_pressedBtn.classList.remove('pressed');_pressedBtn=null;}
+    ckb.querySelectorAll('.ck.pressed').forEach(b=>b.classList.remove('pressed'));
+    _pressedBtn=null;
   },{passive:false});
   ckb.addEventListener('touchcancel',e=>{
-    if(_pressedBtn){_pressedBtn.classList.remove('pressed');_pressedBtn=null;}
+    ckb.querySelectorAll('.ck.pressed').forEach(b=>b.classList.remove('pressed'));
+    _pressedBtn=null;
   },{passive:false});
 })();
 
