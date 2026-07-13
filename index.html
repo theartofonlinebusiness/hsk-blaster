@@ -249,7 +249,7 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
     </div>
     <div class="go-row">
       <button class="go-btn" onclick="startGame()">▶ RETRY</button>
-      <button style="padding:14px 28px;border-color:#4a6a8a;color:#4a6a8a" onclick="showMenu()">MENU</button>
+      <button class="pbtn go-btn" style="border-color:#4a6a8a;color:#4a6a8a" onclick="showMenu()">MENU</button>
     </div>
   </div>
 </div>
@@ -619,7 +619,8 @@ class FallingWord{
     // Speed: fast enough to feel energetic, variance from size
     const sizeSpeedFactor=1.3-sizeRoll*0.5;
     const tierRoll=Math.random();
-    const tier=tierRoll<0.3?0.65:tierRoll<0.8?1.0:1.5;
+    // Compressed range: slow 0.80×, normal 1.0×, fast 1.22× (was 0.65/1.0/1.5 — too wide)
+    const tier=tierRoll<0.3?0.80:tierRoll<0.8?1.0:1.22;
     this.baseSpeed=(0.72+Math.random()*0.28)*speedMult*sizeSpeedFactor*tier;
     this.speed=this.baseSpeed;
     this.opacity=1;
@@ -1414,13 +1415,16 @@ function spawnWord(forcedWord){
   const estHalf=(fw.chars.length*(fw.charW||fw.fontSize))/2+20;
   const spawnMin=PLAY_X+estHalf+10, spawnMax=PLAY_X+PLAY_W-estHalf-10;
   fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
-  const fwHalf=estHalf;
+  // Minimum pixel gap between word centers — prevents visual collisions
+  const MIN_GAP=screenMode==='mobile'?110:150;
   let ok=false,att=0;
-  while(!ok&&att<14){
+  while(!ok&&att<20){
     ok=true;
     for(const f of falling){
-      const fHalf=(f.chars.length*(f._measuredCharW||f.charW||f.fontSize))/2+36;
-      if(Math.abs(f.x-fw.x)<fwHalf+fHalf){
+      if(f.dying) continue;
+      const fHalf=(f.chars.length*(f._measuredCharW||f.charW||f.fontSize))/2+24;
+      const minDist=Math.max(MIN_GAP, estHalf+fHalf);
+      if(Math.abs(f.x-fw.x)<minDist){
         ok=false;
         fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
         break;
@@ -1594,8 +1598,11 @@ function processChar(ch){
 function _completeSyllable(){
   const charIdx=target.completedSyls;
   const cx=getCharX(target,charIdx);
-  // speak the character that just completed — audio pronunciation feature
-  speakChar(target.chars[charIdx]);
+  // On last syllable speak the whole word — gives TTS full tonal context (fixes neutral tone).
+  // On intermediate syllables speak just the char for per-syllable feedback.
+  const isLastSyl=charIdx>=target.syllables.length-1||
+    (target.isErhua&&charIdx>=target.syllables.length-2);
+  speakChar(isLastSyl?target.chars.join(''):target.chars[charIdx]);
   target.completedSyls++;
   burst(cx,target.y,'#00ff88',5);
   streak++;longestStreak=Math.max(streak,longestStreak);
@@ -2111,7 +2118,10 @@ function loop(ts){
     ctx.textAlign='center';ctx.textBaseline='middle';
 
     if(waveState==='finishing'){
-      ctx.font='bold 52px Orbitron,monospace';
+      // scale font so text fits within play area on any screen
+      let wcFs=52;
+      ctx.font=`bold ${wcFs}px Orbitron,monospace`;
+      while(ctx.measureText(`WAVE ${wave} CLEAR`).width>PLAY_W-20&&wcFs>24){wcFs-=2;ctx.font=`bold ${wcFs}px Orbitron,monospace`;}
       ctx.shadowBlur=40;ctx.shadowColor='#00ff88';
       ctx.fillStyle='#00ff88';
       ctx.fillText(`WAVE ${wave} CLEAR`,W/2,currentWaveTip?H/2-70:H/2-20);
