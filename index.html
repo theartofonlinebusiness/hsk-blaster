@@ -633,10 +633,17 @@ class FallingWord{
     this.completedSyls=0;
     this.damageFlash=0;
     // Slight horizontal drift — natural-looking angle, breaks up straight-down monotony.
-    // Slight horizontal drift — random direction, subtle angle (~30px total drift).
-    // Random direction prevents center-convergence when multiple words are on screen.
-    // Bounce walls (lines below) keep words within play area.
-    this.vx=(Math.random()<0.5?-1:1)*(0.12+Math.random()*0.18); // ±0.12–0.30 px/frame
+    // Drift direction chosen to diverge from nearest on-screen word.
+    // If no neighbors yet, pick randomly. Ensures words spread apart not converge.
+    {
+      const neighbors=falling.filter(f=>!f.dying&&f!==this);
+      let driftDir=Math.random()<0.5?-1:1;
+      if(neighbors.length>0){
+        const nearest=neighbors.reduce((a,b)=>Math.abs(b.x-this.x)<Math.abs(a.x-this.x)?b:a);
+        driftDir=this.x>=nearest.x?1:-1; // move away from nearest
+      }
+      this.vx=driftDir*(0.12+Math.random()*0.20); // 0.12–0.32 px/frame away from neighbor
+    }
     this.spawnTime=Date.now();     // for hesitation tracking (SRS signal)
     this.firstKeyTime=null;        // set when player first types toward this word
     this.responseStartTime=null;   // set when word is locked as target
@@ -703,8 +710,8 @@ class FallingWord{
     // clamp using actual word half-width so nothing protrudes outside the column
     const _hw=(this.chars.length*(this._measuredCharW||this.charW))/2+8;
     const minX=PLAY_X+_hw, maxX=PLAY_X+PLAY_W-_hw;
-    if(this.x<minX){this.x=minX;if(this.vx<0)this.vx*=-0.4;}
-    if(this.x>maxX){this.x=maxX;if(this.vx>0)this.vx*=-0.4;}
+    if(this.x<minX){this.x=minX;if(this.vx<0)this.vx*=-0.78;}  // elastic bounce, retain 78% speed
+    if(this.x>maxX){this.x=maxX;if(this.vx>0)this.vx*=-0.78;}
     return false;
   }
 
@@ -1008,12 +1015,16 @@ function bigBurst(x,y){
 // ─── SHIP ─────────────────────────────────────────────────────────────────
 const ship={
   x:0,y:0,angle:0,
-  thruster:0,recoil:0,
-  init(){this.x=PLAY_X+PLAY_W/2;this.y=H-55;this.angle=0;},
+  thruster:0,recoil:0,fireKick:0,
+  init(){this.x=PLAY_X+PLAY_W/2;this.y=H-55;this.angle=0;this.fireKick=0;},
   update(dt){
     this.x+=(PLAY_X+PLAY_W/2-this.x)*0.08;
     this.thruster=(this.thruster+dt*0.005)%(Math.PI*2);
     if(this.recoil>0)this.recoil=Math.max(0,this.recoil-dt*0.3);
+    if(this.fireKick!==0){
+      this.fireKick*=Math.pow(0.88,dt/16); // snap back quickly
+      if(Math.abs(this.fireKick)<0.005)this.fireKick=0;
+    }
     // rotate toward the current target character
     let targetX=W/2;
     if(target&&!target.dying){
@@ -1023,11 +1034,15 @@ const ship={
     const desired=Math.atan2(dx,200)*0.55; // max ~0.5 rad tilt
     this.angle+=(desired-this.angle)*0.07;
   },
+  kick(towardX){ // called on each shot — adds a snap-back rotation jolt
+    const dir=towardX>this.x?1:-1;
+    this.fireKick=dir*0.18; // ~10 deg kick toward target, snaps back
+  },
   draw(){
     const ox=this.x,oy=this.y+this.recoil;
     ctx.save();
     ctx.translate(ox,oy);
-    ctx.rotate(this.angle);
+    ctx.rotate(this.angle+this.fireKick);
     const x=0,y=0;
 
     // engine glow
@@ -1064,6 +1079,7 @@ const ship={
 // ─── BULLETS ──────────────────────────────────────────────────────────────
 function fireMicroBullet(tx,ty){
   ship.recoil=Math.min((ship.recoil||0)+2.5,7);
+  ship.kick(tx);
   // muzzle flash at ship tip
   const tipX=ship.x-Math.sin(ship.angle)*22;
   const tipY=(ship.y+ship.recoil)-Math.cos(ship.angle)*22;
@@ -1300,11 +1316,11 @@ function hitWord(w,bx,by){
   sfxDestroy();
   if(w.isGolden){
     bigBurst(ex,ey);
-    screenShake=Math.min(screenShake+18,28);
+    screenShake=Math.min(screenShake+28,42);
   } else {
     burst(ex,ey,'#ffffff',10);burst(ex,ey,'#88ccff',18);burst(ex,ey,'#aaddff',8);
     ringBurst(ex,ey,'rgba(0,200,255,0.85)');
-    screenShake=Math.min(screenShake+9,20);
+    screenShake=Math.min(screenShake+16,32);
   }
 
   const streakMult=1+Math.floor(streak/5);
@@ -1715,7 +1731,7 @@ function selectM3Option(idx){
 function loseLife(fw){
   lives--;wordsMissed++;missesThisWave++;streak=0;
   document.getElementById('hv-streak').textContent=0;
-  screenShake=26;
+  screenShake=45;
   burst(W/2,H-55,'#ff0044',30);
   sfxLoseLife();
   updateLivesHUD();
@@ -1939,7 +1955,7 @@ function loop(ts){
   if(screenShake>0){
     ctx.save();
     ctx.translate((Math.random()-.5)*screenShake,(Math.random()-.5)*screenShake);
-    screenShake=Math.max(0,screenShake-dt*0.07);
+    screenShake=Math.max(0,screenShake-dt*0.055);
     _shook=true;
   }
 
