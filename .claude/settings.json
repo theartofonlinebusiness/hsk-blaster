@@ -1,15 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl -s *)",
-      "Bash(curl -sL *)",
-      "Bash(curl -fsSL *)",
-      "Bash(node --check *)",
-      "Bash(lsof -ti:*)",
-      "Bash(kill *)",
-      "Bash(mkdir -p *)",
-      "Bash(touch *)",
-      "Bash(open *)"
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)",
+      "WebFetch(*)",
+      "mcp__Claude_Browser__*",
+      "mcp__visualize__*",
+      "mcp__ccd_session__*"
     ]
   },
   "hooks": {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>汉字 Blaster</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -232,10 +232,10 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
       <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">ACCURACY</div><div id="go-acc" style="color:#00ff88;font-size:1.4em;margin-top:4px">--%</div></div>
       <div><div style="color:#445566;font-size:.68em;letter-spacing:2px">BEST STREAK</div><div id="go-streak" style="color:#ff88ff;font-size:1.4em;margin-top:4px">0</div></div>
     </div>
-    <div style="color:#334455;font-size:.68em;letter-spacing:1.5px;margin:8px 0 4px">WORDS COMMANDED THIS RUN</div>
-    <div id="go-words" style="color:#00ffff;font-size:1.6em;text-shadow:0 0 12px #00ffff;margin-bottom:12px">0</div>
+    <div style="color:#334455;font-size:.68em;letter-spacing:1.5px;margin:8px 0 4px">WORDS YOU MASTERED THIS RUN</div>
+    <div id="go-words" style="color:#00ffff;font-size:1.4em;text-shadow:0 0 12px #00ffff;margin-bottom:12px;line-height:1.4">0</div>
     <div id="go-missed" style="margin:18px 0 0;text-align:left;max-height:200px;overflow-y:auto;display:none">
-      <div style="color:#556677;font-size:.78em;letter-spacing:2px;margin-bottom:10px;text-align:center">WORDS YOU MISSED — STUDY THESE</div>
+      <div style="color:#556677;font-size:.78em;letter-spacing:2px;margin-bottom:10px;text-align:center">STUDY THE WORDS YOU MISSED</div>
       <div id="go-missed-list" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center"></div>
     </div>
     <div class="go-row">
@@ -495,19 +495,35 @@ let PLAY_W=screenMode==='mobile'?390:860;
 let PLAY_X=0;
 
 function resize(){
-  W=canvas.width=window.innerWidth;
-  H=canvas.height=window.innerHeight;
-  // Auto-detect device format — phone ≤600px gets mobile play area; everything else desktop
-  // iPad portrait (768px) → desktop (860px play area fits fine); phone → 390px
+  // Use visualViewport when available — critical for mobile: gives actual visible area
+  // above the keyboard. window.innerHeight stays full even when keyboard is open on iOS.
+  const vv=window.visualViewport;
+  W=Math.round(vv?vv.width:window.innerWidth);
+  H=Math.round(vv?vv.height:window.innerHeight);
+  canvas.width=W; canvas.height=H;
+  // Sync canvas CSS size so it doesn't stretch to fill the full window
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  // On iOS the viewport can be offset when keyboard pushes content
+  canvas.style.top=(vv?vv.offsetTop:0)+'px';
+  canvas.style.left=(vv?vv.offsetLeft:0)+'px';
+  // Also keep overlay/mob-bar anchored to the visual viewport top
+  const mobBar=document.getElementById('mob-bar');
+  const overlay=document.getElementById('overlay');
+  if(vv&&vv.offsetTop){
+    if(mobBar) mobBar.style.top=vv.offsetTop+'px';
+    if(overlay) overlay.style.top=vv.offsetTop+'px';
+  } else {
+    if(mobBar) mobBar.style.top='0';
+    if(overlay) overlay.style.top='0';
+  }
+  // Auto-detect device format — phone ≤600px gets mobile play area
   const newMode=W<=600?'mobile':'desktop';
   if(newMode!==screenMode){
     screenMode=newMode;
     PLAY_W=screenMode==='mobile'?390:860;
   }
   PLAY_X=Math.max(0,Math.floor((W-PLAY_W)/2));
-  // Keep HUD buttons inside the play area, not floating in the dark sidebars
-  // Position HUD buttons just inside the right edge of the play area
-  const playRight=W-PLAY_X-PLAY_W; // px from right viewport edge to play area right edge
+  const playRight=W-PLAY_X-PLAY_W;
   const rOff=playRight+8;
   const pb=document.getElementById('pause-btn');
   const pyb=document.getElementById('pinyin-btn');
@@ -518,6 +534,11 @@ function resize(){
 }
 resize();
 window.addEventListener('resize',resize);
+// visualViewport fires separately from window.resize on keyboard open/close
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',resize);
+  window.visualViewport.addEventListener('scroll',resize);
+}
 
 let gState='menu'; // menu | playing | paused | gameover
 let score=0,hiScore=+(localStorage.getItem('hsk_hi')||0);
@@ -1805,6 +1826,8 @@ function togglePause(){
     pauseMusic();
     document.getElementById('pause-overlay').style.display='flex';
     document.getElementById('pause-btn').textContent='▶ RESUME';
+    // Dismiss keyboard so pause menu is fully visible
+    if(document.getElementById('mobile-input')) document.getElementById('mobile-input').blur();
   } else if(gState==='paused'){
     gState='playing';
     document.getElementById('pause-overlay').style.display='none';
@@ -2077,21 +2100,24 @@ function loop(ts){
       // pulse brightness within each second so digit feels alive
       const withinSec=(progress*3)%1;
       const bright=1-withinSec*0.3;
-      ctx.font='bold 36px Orbitron,monospace';
+      // Scale countdown to visible height (keyboard may reduce H on mobile)
+      const cdScale=Math.min(1, H/700);
+      const cdMid=H*0.45;
+      ctx.font=`bold ${Math.round(28*cdScale+12)}px Orbitron,monospace`;
       ctx.shadowBlur=20;ctx.shadowColor='#00ffff';
       ctx.fillStyle=`rgba(0,${Math.round(200*bright)},${Math.round(255*bright)},0.9)`;
-      ctx.fillText(`WAVE ${wave}`,W/2,H/2-56);
+      ctx.fillText(`WAVE ${wave}`,W/2,cdMid-H*0.1);
       // wave name — narrative milestone that makes wave numbers meaningful
-      ctx.font=`500 18px 'Noto Sans',Arial,sans-serif`;
+      ctx.font=`500 ${Math.round(14*cdScale+4)}px 'Noto Sans',Arial,sans-serif`;
       ctx.shadowBlur=6;ctx.fillStyle=`rgba(160,210,255,${0.7*bright})`;
-      ctx.fillText(waveName(wave).toUpperCase(),W/2,H/2-28);
-      ctx.font='bold 110px Orbitron,monospace';
+      ctx.fillText(waveName(wave).toUpperCase(),W/2,cdMid-H*0.04);
+      ctx.font=`bold ${Math.round(80*cdScale+20)}px Orbitron,monospace`;
       ctx.shadowBlur=50;ctx.shadowColor='#ff8800';
       ctx.fillStyle=`rgba(255,${Math.round(160*bright)},0,${0.9+bright*0.1})`;
-      ctx.fillText(String(digit),W/2,H/2+46);
-      ctx.font='bold 18px Orbitron,monospace';
+      ctx.fillText(String(digit),W/2,cdMid+H*0.1);
+      ctx.font=`bold ${Math.round(14*cdScale+4)}px Orbitron,monospace`;
       ctx.shadowBlur=6;ctx.fillStyle='rgba(180,200,220,0.45)';
-      ctx.fillText('GET READY',W/2,H/2+102);
+      ctx.fillText('GET READY',W/2,cdMid+H*0.19);
     }
     ctx.restore();
   }
@@ -2102,7 +2128,8 @@ function loop(ts){
     const a=Math.min(1,flashTimer/200);
     ctx.save();
     ctx.globalAlpha=a;
-    ctx.font='bold 26px Orbitron,monospace';
+    const flashSz=Math.min(26,Math.round(W*0.065));
+    ctx.font=`bold ${flashSz}px Orbitron,monospace`;
     ctx.fillStyle='#ffff44';
     ctx.shadowBlur=20;ctx.shadowColor='#ffaa00';
     ctx.textAlign='center';ctx.textBaseline='middle';
@@ -2264,7 +2291,8 @@ function gameOver(){
   const total=wordsDestroyed+wordsMissed;
   document.getElementById('go-acc').textContent=total?Math.round(wordsDestroyed/total*100)+'%':'--';
   document.getElementById('go-streak').textContent=longestStreak;
-  document.getElementById('go-words').textContent=wordsCommandedSet.size+' unique HSK '+selHSKVersion+' L'+selHSKLevel+' words';
+  const lvlLabel=selHSKLevel==='7-9'?'Levels 7–9':'Level '+selHSKLevel;
+  document.getElementById('go-words').innerHTML=wordsCommandedSet.size+' unique HSK '+selHSKVersion+'<br>'+lvlLabel+' words';
   // missed words recap — personal study list generated by the game
   const missedEl=document.getElementById('go-missed');
   const missedList=document.getElementById('go-missed-list');
@@ -2293,6 +2321,8 @@ function gameOver(){
   document.getElementById('gameover-scr').style.display='block';
   document.getElementById('menu-scr').style.display='none';
   document.getElementById('overlay').style.display='flex';
+  // Dismiss mobile keyboard so game over screen is fully visible
+  if(document.getElementById('mobile-input')) document.getElementById('mobile-input').blur();
   stopMusic();
 }
 
