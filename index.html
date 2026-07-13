@@ -966,17 +966,34 @@ class FallingWord{
             ctx.fillStyle='rgba(0,255,140,0.85)';
             ctx.fillText(tSyl,cx,yBelow);
           } else if(this.targeted&&i===this.completedSyls){
-            // Always show full toned syllable — gives player context of what to type.
-            // Yellow when actively typing, dim-blue if waiting for first keystroke.
+            // Per-letter reveal: typed portion bright yellow, remaining dim
             ctx.font=pyFont;
-            if(sylBuf){
-              ctx.shadowBlur=14;ctx.shadowColor='#ffdd00';
-              ctx.fillStyle='#ffee44';
-            } else {
+            const nTyped=sylBuf.length;
+            if(nTyped===0){
+              // Nothing typed yet — full syllable in waiting blue
               ctx.shadowBlur=6;ctx.shadowColor='rgba(120,190,255,0.4)';
               ctx.fillStyle='rgba(160,210,255,0.75)';
+              ctx.fillText(tSyl,cx,yBelow);
+            } else {
+              // Split tSyl at sylBuf.length: first N chars match typed letters
+              const typedPart=tSyl.slice(0,nTyped);
+              const restPart=tSyl.slice(nTyped);
+              const totalW=ctx.measureText(tSyl).width;
+              const typedW=ctx.measureText(typedPart).width;
+              const leftEdge=cx-totalW/2;
+              ctx.textAlign='left';
+              // Typed portion — bright yellow glow
+              ctx.shadowBlur=14;ctx.shadowColor='#ffdd00';
+              ctx.fillStyle='#ffee44';
+              ctx.fillText(typedPart,leftEdge,yBelow);
+              // Remaining — dim ghost
+              if(restPart){
+                ctx.shadowBlur=2;ctx.shadowColor='rgba(120,180,255,0.1)';
+                ctx.fillStyle='rgba(150,195,255,0.38)';
+                ctx.fillText(restPart,leftEdge+typedW,yBelow);
+              }
+              ctx.textAlign='center';
             }
-            ctx.fillText(tSyl,cx,yBelow);
           } else if(this.targeted&&i>this.completedSyls){
             // Ghost pinyin for remaining syllables — player can see full word ahead
             ctx.font=pyFont;
@@ -1206,7 +1223,9 @@ function ac(){
 }
 function tone(freq,dur,vol,type='square',slide=0){
   try{
-    const a=ac(),o=a.createOscillator(),g=a.createGain();
+    const a=ac();
+    if(a.state==='suspended') a.resume(); // iOS suspends AudioContext between gestures
+    const o=a.createOscillator(),g=a.createGain();
     o.connect(g);g.connect(a.destination);
     o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);
     if(slide) o.frequency.linearRampToValueAtTime(freq+slide,a.currentTime+dur);
@@ -1253,7 +1272,7 @@ window.speechSynthesis&&window.speechSynthesis.addEventListener&&
 setTimeout(_loadVoice,500); // fallback init
 
 function speakChar(ch){
-  if(!audioMode||!window.speechSynthesis||!window._ttsUnlocked) return;
+  if(!audioMode||!window.speechSynthesis) return;
   try{
     // Always cancel current speech and play the newest character.
     // Fast typing = you hear the last char completed. Slow = you hear each one.
@@ -1845,7 +1864,7 @@ function checkWave(dt){
       // Words per wave: starts small, climbs steadily
       wordsPerWave=4+wave*2;                           // 6,8,10,12,14…
       // Max simultaneous: adds 1 slot every 2 waves so it feels gradual
-      maxSimultaneous=Math.min(12,2+Math.floor(wave/2)); // 2,2,3,3,4,4,5,5,6…
+      maxSimultaneous=Math.min(12,1+Math.floor(wave/2)); // wave2→2,wave3→2,wave4→3,wave5→3…
       // Spawn gap: starts roomy, tightens but never below 800ms
       spawnInterval=Math.max(800,Math.round(2400-wave*130)); // 2270→1880→1490→1100→800
       // Speed: starts BELOW base (0.75×) so wave 1 feels learnable,
@@ -2520,41 +2539,64 @@ if(isTouchDevice){
       else if(key==='⌫'){btn.className+=' ck-bksp';btn.textContent='⌫';}
       else{btn.textContent=key.toUpperCase();}
       btn.dataset.key=key;
-      const fire=()=>{
-        const k=key==='⌫'?'Backspace':key;
-        handleKey(new KeyboardEvent('keydown',{key:k,bubbles:true}));
-      };
-      btn.addEventListener('touchstart',e=>{
-        e.preventDefault();
-        // Resume AudioContext — iOS suspends it between taps
-        try{ ac().resume(); }catch(_){}
-        // Unlock TTS on first ever touch (iOS requires gesture)
-        if(!window._ttsUnlocked){
-          window._ttsUnlocked=true;
-          try{
-            const u=new SpeechSynthesisUtterance('');
-            u.volume=0;
-            window.speechSynthesis.speak(u);
-          }catch(_){}
-        }
-        btn.classList.add('pressed');
-        fire();
-      },{passive:false});
-      btn.addEventListener('touchend',e=>{
-        e.preventDefault();
-        btn.classList.remove('pressed');
-      },{passive:false});
-      // desktop fallback
+      // mousedown only (desktop fallback — touch is handled at container level)
       btn.addEventListener('mousedown',e=>{
         e.preventDefault();
         btn.classList.add('pressed');
-        fire();
+        const k=key==='⌫'?'Backspace':key;
+        handleKey(new KeyboardEvent('keydown',{key:k,bubbles:true}));
       });
       btn.addEventListener('mouseup',()=>btn.classList.remove('pressed'));
       rowEl.appendChild(btn);
     });
     ckb.appendChild(rowEl);
   });
+
+  // ── Container-level touch handler ──────────────────────────────────────
+  // Maps every tap to the NEAREST button center, expanding effective hit area
+  // across the gaps between keys. No dead zones.
+  let _pressedBtn=null;
+  function _audioUnlock(){
+    try{ ac().resume(); }catch(_){}
+    if(!window._ttsUnlocked){
+      window._ttsUnlocked=true;
+      try{
+        const u=new SpeechSynthesisUtterance(' ');
+        u.volume=0;u.lang='zh-CN';
+        window.speechSynthesis.speak(u);
+      }catch(_){}
+    }
+  }
+  ckb.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    _audioUnlock();
+    const allBtns=ckb.querySelectorAll('.ck');
+    for(let t=0;t<e.changedTouches.length;t++){
+      const touch=e.changedTouches[t];
+      const tx=touch.clientX,ty=touch.clientY;
+      let nearest=null,nearestD=Infinity;
+      allBtns.forEach(b=>{
+        const r=b.getBoundingClientRect();
+        const bx=r.left+r.width/2,by=r.top+r.height/2;
+        const d=Math.hypot(tx-bx,ty-by);
+        if(d<nearestD){nearestD=d;nearest=b;}
+      });
+      if(nearest){
+        if(_pressedBtn&&_pressedBtn!==nearest) _pressedBtn.classList.remove('pressed');
+        nearest.classList.add('pressed');
+        _pressedBtn=nearest;
+        const k=nearest.dataset.key==='⌫'?'Backspace':nearest.dataset.key;
+        handleKey(new KeyboardEvent('keydown',{key:k,bubbles:true}));
+      }
+    }
+  },{passive:false});
+  ckb.addEventListener('touchend',e=>{
+    e.preventDefault();
+    if(_pressedBtn){_pressedBtn.classList.remove('pressed');_pressedBtn=null;}
+  },{passive:false});
+  ckb.addEventListener('touchcancel',e=>{
+    if(_pressedBtn){_pressedBtn.classList.remove('pressed');_pressedBtn=null;}
+  },{passive:false});
 })();
 
 function ckbShow(){
