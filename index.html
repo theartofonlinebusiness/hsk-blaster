@@ -1296,13 +1296,13 @@ setTimeout(_loadVoice,500); // fallback init
 function speakChar(ch){
   if(!audioMode||!window.speechSynthesis) return;
   try{
-    // speakChar is always called from within a touchstart handler (gesture context).
-    // iOS allows speak() from a gesture — cancel any backlog so fast typing
-    // only speaks the most recent character, not a queue of stale ones.
-    window.speechSynthesis.cancel();
+    // Do NOT call cancel() before speak() on iOS Safari — cancel() is async
+    // internally and the immediate speak() fires before cancel settles, causing
+    // iOS to silently drop it. Just queue; short utterances drain fast enough.
+    _loadVoice(); // retry voice load in case it wasn't ready at page load
     const u=new SpeechSynthesisUtterance(ch);
     u.lang='zh-CN';
-    u.rate=0.62;
+    u.rate=0.45; // deliberate pace so learners hear each tone clearly
     u.pitch=1.08;
     u.volume=ttsVol;
     if(_ttsVoice) u.voice=_ttsVoice;
@@ -1703,11 +1703,8 @@ function processChar(ch){
 function _completeSyllable(){
   const charIdx=target.completedSyls;
   const cx=getCharX(target,charIdx);
-  // On last syllable speak the whole word — gives TTS full tonal context (fixes neutral tone).
-  // On intermediate syllables speak just the char for per-syllable feedback.
-  const isLastSyl=charIdx>=target.syllables.length-1||
-    (target.isErhua&&charIdx>=target.syllables.length-2);
-  speakChar(isLastSyl?target.chars.join(''):target.chars[charIdx]);
+  // Speak only the current character so each keystroke gives individual feedback.
+  speakChar(target.chars[charIdx]);
   target.completedSyls++;
   burst(cx,target.y,'#00ff88',5);
   streak++;longestStreak=Math.max(streak,longestStreak);
@@ -2602,7 +2599,8 @@ if(isTouchDevice){
   // across the gaps between keys. No dead zones.
   let _pressedBtn=null;
   function _audioUnlock(){
-    _unlockAudioCtx(); // Web Audio unlock — speakChar handles TTS directly in gesture
+    _unlockAudioCtx(); // Web Audio unlock
+    _loadVoice();      // retry zh-CN voice load in case it wasn't ready at page load
   }
   ckb.addEventListener('touchstart',e=>{
     e.preventDefault();
