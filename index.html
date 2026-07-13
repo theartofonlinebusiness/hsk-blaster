@@ -661,23 +661,20 @@ class FallingWord{
       return this.dyingTimer>350;
     }
     if(this.damageFlash>0) this.damageFlash=Math.max(0,this.damageFlash-dt);
-    // Exponential slowdown in the danger zone — only triggers in last ~12% of screen
-    // Gives players a "just in time" save opportunity without making the game too easy
+    // Exponential slowdown in the danger zone — only triggers in last ~9% of screen
     const bottomEdge = H - 80;
     const distFromBottom = Math.max(0, bottomEdge - (this.y + this.fontSize * 0.55));
-    const slowZone = H * 0.12; // bottom 12% triggers slowdown
+    const slowZone = H * 0.09; // bottom 9% triggers slowdown (was 12%)
     let speedMod;
     if(distFromBottom < slowZone){
-      speedMod = Math.pow(distFromBottom / slowZone, 2.5);
-      // Track how long this word has been in the danger zone
+      speedMod = Math.pow(distFromBottom / slowZone, 1.5); // was 2.5 — less extreme
       this._dangerMs = (this._dangerMs||0) + dt;
-      // Hard kill after 3.5s in the zone — no infinite crawling
       if(this._dangerMs > 3500 && !this.dying){ this.dying=true; loseLife(this); }
     } else {
       speedMod = 1;
       this._dangerMs = 0;
     }
-    this.y += this.speed * Math.max(speedMod, 0.08) * (dt/16);
+    this.y += this.speed * Math.max(speedMod, 0.15) * (dt/16); // min 0.15 (was 0.08)
     // horizontal velocity (children fan out)
     if(this.vx){
       this.x+=this.vx*(dt/16);
@@ -830,6 +827,38 @@ class FallingWord{
         ctx.restore();
       }
 
+      // ZType-style targeting hexagon — appears when player starts typing this word
+      if(this.targeted&&!this.dying&&!this.isGolden&&!this.isMother){
+        const prog=Math.min(1,this.completedSyls/Math.max(1,this.syllables.length));
+        const t=Date.now()*0.0025;
+        // hexagon contracts as typing progresses: starts wide, tightens to word
+        const hexPad=Math.max(8,32-prog*26);
+        const hexW=totalW/2+fw*0.5+hexPad;
+        const hexH=fh*0.5+hexPad*0.6;
+        const pulse=0.55+0.35*Math.sin(t);
+        ctx.save();
+        ctx.strokeStyle=`rgba(0,255,200,${0.45+0.35*pulse})`;
+        ctx.shadowBlur=14;ctx.shadowColor='rgba(0,255,180,0.9)';
+        ctx.lineWidth=1.8;
+        ctx.beginPath();
+        for(let k=0;k<6;k++){
+          const ang=(Math.PI/3)*k-Math.PI/6;
+          const hx=this.x+hexW*Math.cos(ang);
+          const hy=this.y+hexH*Math.sin(ang);
+          k===0?ctx.moveTo(hx,hy):ctx.lineTo(hx,hy);
+        }
+        ctx.closePath();ctx.stroke();
+        // corner tick marks at vertices
+        ctx.lineWidth=2.5;ctx.shadowBlur=8;
+        for(let k=0;k<6;k++){
+          const ang=(Math.PI/3)*k-Math.PI/6;
+          const hx=this.x+hexW*Math.cos(ang);
+          const hy=this.y+hexH*Math.sin(ang);
+          ctx.beginPath();ctx.arc(hx,hy,2.5,0,Math.PI*2);ctx.fillStyle='rgba(0,255,200,0.9)';ctx.fill();
+        }
+        ctx.restore();
+      }
+
       for(let i=0;i<n;i++){
         const cx=startX+i*measCW;
         const charTop=this.y-fh*0.52;
@@ -923,23 +952,32 @@ class FallingWord{
 
 // ─── PARTICLES ────────────────────────────────────────────────────────────
 function burst(x,y,color,n=18){
+  // central flash
+  particles.push({x,y,vx:0,vy:0,life:0,maxLife:90,color:'rgba(255,255,255,0.95)',size:10,flash:true});
   for(let i=0;i<n;i++){
     const angle=Math.random()*Math.PI*2;
-    const spd=1.5+Math.random()*5.5;
+    const spd=2.5+Math.random()*8; // faster for snappier look
     particles.push({
       x,y,
       vx:Math.cos(angle)*spd,
-      vy:Math.sin(angle)*spd-1, // slight upward bias so burst "rises"
-      life:0,maxLife:380+Math.random()*420,
+      vy:Math.sin(angle)*spd-1.8, // stronger upward bias
+      life:0,maxLife:220+Math.random()*280, // shorter = snappier
       color,
-      size:1.2+Math.random()*4.5
+      size:0.8+Math.random()*3
     });
+  }
+  // slow ember debris
+  for(let i=0;i<4;i++){
+    const angle=Math.random()*Math.PI*2;
+    particles.push({x,y,vx:Math.cos(angle)*1.2,vy:Math.sin(angle)*1.2-1.5,
+      life:0,maxLife:500+Math.random()*400,color,size:2+Math.random()*2.5});
   }
 }
 
 // Ring shockwave — expands outward from explosion center
 function ringBurst(x,y,color){
-  particles.push({x,y,vx:0,vy:0,life:0,maxLife:320,color,size:4,ring:true,ringR:2});
+  particles.push({x,y,vx:0,vy:0,life:0,maxLife:180,color,size:3,ring:true,ringR:2,ringSpd:130});
+  particles.push({x,y,vx:0,vy:0,life:0,maxLife:250,color:'rgba(255,255,255,0.4)',size:1.5,ring:true,ringR:2,ringSpd:75});
 }
 
 // Large dramatic burst for golden/clutch kills
@@ -1981,18 +2019,27 @@ function loop(ts){
     const a=1-p.life/p.maxLife;
     if(a<=0){particles.splice(i,1);continue;}
     if(p.ring){
-      // expanding ring shockwave
-      p.ringR=2+(p.life/p.maxLife)*90;
-      ctx.save();ctx.globalAlpha=a*0.85;
-      ctx.strokeStyle=p.color;ctx.lineWidth=3;
+      p.ringR=2+(p.life/p.maxLife)*(p.ringSpd||90);
+      ctx.save();ctx.globalAlpha=a*0.8;
+      ctx.strokeStyle=p.color;ctx.lineWidth=p.size||3;
+      ctx.shadowBlur=8;ctx.shadowColor=p.color;
       ctx.beginPath();ctx.arc(p.x,p.y,p.ringR,0,Math.PI*2);ctx.stroke();
       ctx.restore();
+    } else if(p.flash){
+      // central white flash — blooms then fades
+      const fa=1-p.life/p.maxLife;
+      ctx.save();ctx.globalAlpha=fa*fa;
+      ctx.shadowBlur=40*fa;ctx.shadowColor='#ffffff';
+      ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*(1+p.life/p.maxLife*2),0,Math.PI*2);ctx.fill();
+      ctx.restore();
     } else {
-      p.x+=p.vx*(dt/16);p.y+=p.vy*(dt/16);p.vy+=0.06*(dt/16);
+      p.x+=p.vx*(dt/16);p.y+=p.vy*(dt/16);p.vy+=0.08*(dt/16);
       ctx.globalAlpha=a;
+      ctx.shadowBlur=4;ctx.shadowColor=p.color;
       ctx.fillStyle=p.color;
       ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
-      ctx.globalAlpha=1;
+      ctx.globalAlpha=1;ctx.shadowBlur=0;
     }
   }
 
@@ -2433,8 +2480,8 @@ function showTutStep(){
   ctx2.clearRect(0,0,sc.width,sc.height);
   ctx2.fillStyle='rgba(1,1,12,0.82)';ctx2.fillRect(0,0,sc.width,sc.height);
 
-  // cutout around the target element
-  const el=document.querySelector(step.sel);
+  // cutout around the target element (only for specific HUD elements, not canvas)
+  const el=step.sel&&step.sel!=='canvas'?document.querySelector(step.sel):null;
   const box=document.getElementById('spotlight-box');
   if(el){
     const r=el.getBoundingClientRect();
@@ -2442,15 +2489,11 @@ function showTutStep(){
     ctx2.clearRect(r.left-pad,r.top-pad,r.width+pad*2,r.height+pad*2);
     ctx2.strokeStyle='rgba(0,255,255,0.6)';ctx2.lineWidth=2;
     ctx2.strokeRect(r.left-pad,r.top-pad,r.width+pad*2,r.height+pad*2);
-    // position callout box
-    const bx=r.left+r.width/2-160;
-    const by=r.bottom+pad+10;
-    box.style.left=Math.max(8,Math.min(window.innerWidth-330,bx))+'px';
-    box.style.top=Math.min(window.innerHeight-200,by)+'px';
-  } else {
-    box.style.left='50%';box.style.top='50%';
-    box.style.transform='translate(-50%,-50%)';
   }
+  // Always center the callout box on screen
+  box.style.left='50%';
+  box.style.top='50%';
+  box.style.transform='translate(-50%,-50%)';
   document.getElementById('spotlight-title').textContent=step.label;
   document.getElementById('spotlight-text').textContent=step.text;
 }
