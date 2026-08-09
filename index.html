@@ -711,6 +711,23 @@ class FallingWord{
       this.x+=this.vx*(dt/16);
       this.vx*=Math.pow(0.992,dt/16);
     }
+    // Active separation: directly push position away from any overlapping word.
+    // Position-correction avoids the vx-accumulation / oscillation problem.
+    for(const other of falling){
+      if(other===this||other.dying) continue;
+      const dx=this.x-other.x;
+      const dist=Math.abs(dx);
+      const hw1=(this.chars.length*(this._measuredCharW||this.charW))/2;
+      const hw2=(other.chars.length*(other._measuredCharW||other.charW))/2;
+      const safeGap=hw1+hw2+16;
+      if(dist<safeGap){
+        const dir=dist<0.5?(this.spawnTime>other.spawnTime?1:-1):(dx>0?1:-1);
+        // Move 8% of remaining gap per frame (smooth, no oscillation)
+        this.x+=dir*(safeGap-dist)*0.08*(dt/16);
+        // Dampen any vx that's pointing toward the other word
+        if(this.vx*dir<0) this.vx*=0.85;
+      }
+    }
     // clamp using actual word half-width so nothing protrudes outside the column
     const _hw=(this.chars.length*(this._measuredCharW||this.charW))/2+8;
     const minX=PLAY_X+_hw, maxX=PLAY_X+PLAY_W-_hw;
@@ -1519,16 +1536,20 @@ function spawnWord(forcedWord){
   const estHalf=(fw.chars.length*(fw.charW||fw.fontSize))/2+20;
   const spawnMin=PLAY_X+estHalf+10, spawnMax=PLAY_X+PLAY_W-estHalf-10;
   fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
-  // Minimum pixel gap scales with play width so 3+ words always fit geometrically
+  // Minimum pixel gap: scales with play width and current word density
+  const liveCount=falling.filter(f=>!f.dying).length;
   const idealGap=Math.floor(PLAY_W/(maxSimultaneous+1))-8;
-  const MIN_GAP=Math.min(screenMode==='mobile'?110:150, Math.max(60,idealGap));
+  // Cap MIN_GAP to what's geometrically achievable given current screen density
+  const geometricCap=Math.max(40,Math.floor(PLAY_W/(liveCount+2)));
+  const MIN_GAP=Math.min(screenMode==='mobile'?90:130, Math.max(40,idealGap), geometricCap);
   let ok=false,att=0;
   while(!ok&&att<20){
     ok=true;
     for(const f of falling){
       if(f.dying) continue;
       const fHalf=(f.chars.length*(f._measuredCharW||f.charW||f.fontSize))/2+24;
-      const minDist=Math.max(MIN_GAP, estHalf+fHalf);
+      // Cap minDist so it never exceeds what's geometrically possible in the play area
+      const minDist=Math.min(Math.max(MIN_GAP,estHalf+fHalf), geometricCap*2);
       if(Math.abs(f.x-fw.x)<minDist){
         ok=false;
         fw.x=spawnMin+Math.random()*Math.max(1,spawnMax-spawnMin);
@@ -1536,6 +1557,19 @@ function spawnWord(forcedWord){
       }
     }
     att++;
+  }
+  // Fallback: if still overlapping after 20 attempts, scan 50 positions and pick
+  // the one that maximises minimum distance from all live words (best-of-bad-options)
+  if(!ok && liveCount>0){
+    const spawnRange=Math.max(1,spawnMax-spawnMin);
+    let bestX=(spawnMin+spawnMax)/2, bestScore=-Infinity;
+    for(let s=0;s<=50;s++){
+      const candX=spawnMin+(s/50)*spawnRange;
+      let score=Infinity;
+      for(const f of falling){ if(!f.dying) score=Math.min(score,Math.abs(f.x-candX)); }
+      if(score>bestScore){ bestScore=score; bestX=candX; }
+    }
+    fw.x=bestX;
   }
   falling.push(fw);
   // First-time character tutorials — trigger once ever per device
