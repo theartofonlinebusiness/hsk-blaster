@@ -1086,6 +1086,7 @@ const ship={
   init(){this.x=PLAY_X+PLAY_W/2;this.y=H-55;this.angle=0;this.fireKick=0;},
   update(dt){
     this.x+=(PLAY_X+PLAY_W/2-this.x)*0.08;
+    this.y=H-55;
     this.thruster=(this.thruster+dt*0.005)%(Math.PI*2);
     if(this.recoil>0)this.recoil=Math.max(0,this.recoil-dt*0.3);
     if(this.fireKick!==0){
