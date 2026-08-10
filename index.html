@@ -91,7 +91,7 @@ button.sel{border-color:#ff00ff;color:#ff00ff;text-shadow:0 0 10px #ff00ff;box-s
 /* ── CUSTOM ON-SCREEN KEYBOARD ── */
 #ckb{position:fixed;bottom:0;left:0;width:100%;background:rgba(3,6,22,0.97);border-top:1px solid rgba(0,255,255,0.12);z-index:6;padding:5px 4px max(8px,env(safe-area-inset-bottom)) 4px;display:none;user-select:none;-webkit-user-select:none;touch-action:none}
 .ckb-row{display:flex;justify-content:center;gap:3px;margin-bottom:3px}
-.ck{background:rgba(255,255,255,0.07);border:1px solid rgba(0,200,255,0.18);color:#90ccdd;font-family:'Orbitron',monospace;font-size:0.88em;font-weight:700;border-radius:5px;cursor:pointer;height:42px;flex:1;max-width:37px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;letter-spacing:0;line-height:1;outline:none}
+.ck{background:rgba(255,255,255,0.07);border:1px solid rgba(0,200,255,0.18);color:#90ccdd;font-family:'Orbitron',monospace;font-size:0.88em;font-weight:700;border-radius:5px;cursor:pointer;height:48px;flex:1;max-width:40px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;letter-spacing:0;line-height:1;outline:none}
 .ck.pressed{background:rgba(0,255,220,0.18);border-color:rgba(0,255,220,0.55);color:#00ffcc;box-shadow:0 0 8px rgba(0,255,200,0.3)}
 .ck-bksp{max-width:50px;font-size:1.1em}
 .ck-space{max-width:none;flex:5;font-size:0.65em;letter-spacing:2px;color:#668899}
@@ -706,6 +706,12 @@ class FallingWord{
       this._dangerMs = 0;
     }
     this.y += this.speed * Math.max(speedMod, 0.15) * (dt/16); // min 0.15 (was 0.08)
+    // During countdown, keep chars above the wave name text line
+    if(waveState==='starting'){
+      const cdMid=H*0.45;
+      const cdCeiling=cdMid-H*0.04-this.fontSize*0.65;
+      if(this.y>cdCeiling) this.y=cdCeiling;
+    }
     // horizontal velocity (children fan out)
     if(this.vx){
       this.x+=this.vx*(dt/16);
@@ -1100,17 +1106,15 @@ const ship={
     }
     const dx=targetX-this.x;
     const desired=Math.atan2(dx,200)*0.55; // max ~0.5 rad tilt
-    this.angle+=(desired-this.angle)*0.07;
+    this.angle+=(desired-this.angle)*0.09;
   },
-  kick(towardX){ // called on each shot — adds a snap-back rotation jolt
-    const dir=towardX>this.x?1:-1;
-    this.fireKick=dir*0.18; // ~10 deg kick toward target, snaps back
+  kick(towardX){ // kept for API compatibility — no visual kick on fire
   },
   draw(){
     const ox=this.x,oy=this.y+this.recoil;
     ctx.save();
     ctx.translate(ox,oy);
-    ctx.rotate(this.angle+this.fireKick);
+    ctx.rotate(this.angle);
     const x=0,y=0;
 
     // engine glow
@@ -1154,10 +1158,10 @@ function fireMicroBullet(tx,ty){
   particles.push({x:tipX,y:tipY,vx:(Math.random()-.5)*1.5,vy:-Math.random()*2,
     life:0,maxLife:80,color:'#ffffff',size:3});
   bullets.push({
-    x:ship.x,y:ship.y-22,
+    x:tipX,y:tipY,
     tx,ty,micro:true,progress:0,
-    startX:ship.x,startY:ship.y-22,
-    speed:0.007 // 140ms travel — visible on both 30fps mobile and 60fps desktop
+    startX:tipX,startY:tipY,
+    speed:0.005
   });
 }
 
@@ -1202,12 +1206,12 @@ function drawBullets(){
     const len=Math.sqrt(dx*dx+dy*dy)||1;
     const nx=dx/len, ny=dy/len; // unit direction
     const bx=b.x, by=b.y;
-    const trailLen=b.micro?28:45;
+    const trailLen=b.micro?30:45;
 
     if(b.micro){
       // bright plasma bolt: white hot tip fading to orange
       ctx.shadowBlur=16;ctx.shadowColor='#ff6600';
-      ctx.lineWidth=3;
+      ctx.lineWidth=4;
       const grad=ctx.createLinearGradient(bx,by,bx-nx*trailLen,by-ny*trailLen);
       grad.addColorStop(0,'rgba(255,255,255,0.95)');
       grad.addColorStop(0.25,'rgba(255,200,50,0.8)');
@@ -1216,7 +1220,7 @@ function drawBullets(){
       ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx-nx*trailLen,by-ny*trailLen);ctx.stroke();
       // bright tip dot
       ctx.fillStyle='#ffffff';ctx.shadowBlur=8;ctx.shadowColor='#ffffff';
-      ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
     } else {
       ctx.shadowBlur=18;ctx.shadowColor='#ffdd00';
       ctx.lineWidth=4;
@@ -2234,10 +2238,11 @@ function loop(ts){
       const col=f.missed?'#ff4455':'#ffffff';
       ctx.font=`bold 32px 'Noto Sans SC','Microsoft YaHei',sans-serif`;
       ctx.shadowBlur=12;ctx.shadowColor=col;ctx.fillStyle=col;
-      ctx.fillText(f.c,f.x,f.y);
+      const _fx=Math.max(PLAY_X+32,Math.min(PLAY_X+PLAY_W-32,f.x));
+      ctx.fillText(f.c,_fx,f.y);
       ctx.font=`500 18px 'Noto Sans SC',sans-serif`;
       ctx.fillStyle=f.missed?'#ff8888':'#88ccff';ctx.shadowBlur=5;
-      ctx.fillText(f.p,f.x,f.y+28);
+      ctx.fillText(f.p,_fx,f.y+28);
       ctx.font=`bold 20px 'Noto Sans',Arial,sans-serif`;
       ctx.fillStyle=f.missed?'rgba(255,130,130,0.9)':'rgba(190,220,255,0.88)';
       ctx.shadowBlur=0;ctx.letterSpacing='0.5px';
@@ -2348,7 +2353,21 @@ function loop(ts){
     ctx.fillStyle='#ffff44';
     ctx.shadowBlur=20;ctx.shadowColor='#ffaa00';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(flashMessage,W/2,H/2-80);
+    const _fmw=ctx.measureText(flashMessage).width;
+    const _fmMax=PLAY_W-30;
+    if(_fmw>_fmMax){
+      // Split at middle space closest to center
+      const mid=Math.floor(flashMessage.length/2);
+      let split=flashMessage.indexOf(' ',mid);
+      if(split===-1) split=flashMessage.lastIndexOf(' ',mid);
+      if(split===-1) split=mid;
+      const line1=flashMessage.slice(0,split).trim();
+      const line2=flashMessage.slice(split).trim();
+      ctx.fillText(line1,W/2,H/2-92);
+      ctx.fillText(line2,W/2,H/2-68);
+    }else{
+      ctx.fillText(flashMessage,W/2,H/2-80);
+    }
     ctx.restore();
   }
 
@@ -2817,7 +2836,7 @@ function updateGolden(fw,dt){
   const hits=fw.goldenHits||0;
   if(hits>=3){fw._spawnLocked=true;return;} // max 3 downgrades
   const threshold=GOLDEN_THRESHOLDS[hits];
-  if(!threshold||fw.y<H*threshold) return;
+  if(!threshold||fw.y<H*threshold){fw._downgradeDelay=0;return;}
 
   // Grace: if player is actively typing this word, delay 4s
   if(target===fw&&sylBuf.length>0){
@@ -2825,6 +2844,12 @@ function updateGolden(fw,dt){
     if(fw._graceTimer<4000) return;
   }
   fw._graceTimer=0;
+
+  // Extra 700ms buffer after threshold crossed so player has time to react
+  fw._downgradeDelay=(fw._downgradeDelay||0)+dt;
+  if(fw._downgradeDelay<700) return;
+  fw._downgradeDelay=0;
+
   fw.goldenHits=hits+1;
   goldenDowngrade(fw);
 }
